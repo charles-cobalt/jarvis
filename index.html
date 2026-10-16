@@ -70,7 +70,7 @@ function theme(){return localStorage.getItem('jarvis.theme')||'auto'}
 function applyTheme(){const t=theme();const d=t==='day'||(t==='auto'&&matchMedia('(prefers-color-scheme: light)').matches);document.documentElement.classList.toggle('day',d);const m=document.querySelector('meta[name=theme-color]');if(m)m.content=d?'#ededed':'#121212'}
 function draw(){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.go===page));page==='today'?drawToday():page==='stats'?drawStats():drawSettings()}
 function drawToday(){const t=today(),v=$('#view');
-v.innerHTML='<h1>Today</h1><div class="sub" id="sub"></div><div class="bar"><i id="pb"></i></div><ul id="list"></ul><form class="add" id="f"><input id="in" type="text" maxlength="80" placeholder="Add a habit or task" autocomplete="off"><button class="ic" type="submit" aria-label="Add">'+PLUS+'</button></form>';
+v.innerHTML='<h1>Today</h1><h2>Progress</h2><div class="sub" id="sub"></div><div class="bar"><i id="pb"></i></div><h2>Habits</h2><ul id="list"></ul><h2>Add</h2><form class="add" id="f"><input id="in" type="text" maxlength="80" placeholder="Add a habit or task" autocomplete="off"><button class="ic" type="submit" aria-label="Add">'+PLUS+'</button></form>';
 const L=$('#list');if(!items.length)L.innerHTML='<div class="empty">Nothing yet. Add what you want to track.</div>';
 items.forEach((it,i)=>{const d=(it.days||[]).includes(t);const li=document.createElement('li');li.className='card'+(d?' done':'');
 li.innerHTML='<button class="ck" aria-label="Done today">'+CK+'</button><div class="t"></div><button class="ic" aria-label="Edit">'+PEN+'</button><button class="ic" aria-label="Remove">'+X+'</button>';
@@ -100,7 +100,7 @@ const cnt=d=>items.filter(it=>(it.days||[]).includes(dk(d))).length;
 const per=days.map(cnt),goal=n*days.length,comp=per.reduce((a,b)=>a+b,0),left=goal-comp,pct=goal?Math.round(100*comp/goal):0;
 const SV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">';
 const modes=[['day','Daily'],['week','Weekly'],['month','Monthly'],['year','Yearly']];
-const head='<h1>Stats</h1><div class="row" style="margin-bottom:10px">'+modes.map(([k,l])=>'<button class="chip '+(sMode===k?'on':'')+'" data-sm="'+k+'">'+l+'</button>').join('')+'</div><div class="mn"><button class="ic" id="pm" aria-label="Previous">'+SV+'<path d="M15 5l-7 7 7 7"/></svg></button><div>'+title+'</div><button class="ic" id="nm" aria-label="Next">'+SV+'<path d="M9 5l7 7-7 7"/></svg></button></div>';
+const head='<h1>Stats</h1><h2>Range</h2><div class="row" style="margin-bottom:10px">'+modes.map(([k,l])=>'<button class="chip '+(sMode===k?'on':'')+'" data-sm="'+k+'">'+l+'</button>').join('')+'</div><h2>Period</h2><div class="mn"><button class="ic" id="pm" aria-label="Previous">'+SV+'<path d="M15 5l-7 7 7 7"/></svg></button><div>'+title+'</div><button class="ic" id="nm" aria-label="Next">'+SV+'<path d="M9 5l7 7-7 7"/></svg></button></div>';
 let body;
 if(!n)body='<div class="empty">Nothing to show yet. Add habits or tasks on Today.</div>';
 else{
@@ -121,7 +121,7 @@ else if(sMode==='month'){const off=(days[0].getDay()+6)%7;dn='<h2>Daily donuts</
 else dn='<h2>Monthly donuts</h2>'+dgrid(4,MN.map((x,i)=>sd(pc(moDays(new Date(y,i,1,12))),x.slice(0,3))).join(''));
 const keys=new Set(days.map(dk));
 const an=items.map(it=>{const a=(it.days||[]).filter(k=>keys.has(k)).length,g=days.length,p=Math.round(100*a/g);return '<div class="card an"><div class="r1"><div>'+esc(it.name)+'</div><div>'+p+'%</div></div><div class="pb"><i style="width:'+p+'%"></i></div><div class="mu">Goal '+g+' &middot; Actual '+a+' &middot; Left '+(g-a)+'</div></div>'}).join('');
-body='<h2>Overall progress</h2><div class="card dn">'+don+'<div><b>'+comp+'/'+goal+'</b><span>completed</span></div></div><div class="st3"><div class="stat"><b>'+goal+'</b><span>Goal</span></div><div class="stat"><b>'+comp+'</b><span>Completed</span></div><div class="stat"><b>'+left+'</b><span>Left</span></div></div>'+charts+dn+'<h2>Analysis</h2>'+an}
+body='<h2>Overall progress</h2><div class="card dn">'+don+'<div><b>'+comp+'/'+goal+'</b><span>completed</span></div></div><div class="st3"><div><h2 style="margin-top:12px">Goal</h2><div class="stat"><b>'+goal+'</b></div></div><div><h2 style="margin-top:12px">Completed</h2><div class="stat"><b>'+comp+'</b></div></div><div><h2 style="margin-top:12px">Left</h2><div class="stat"><b>'+left+'</b></div></div></div>'+charts+dn+'<h2>Analysis</h2>'+an}
 v.innerHTML=head+body;
 v.querySelectorAll('[data-sm]').forEach(b=>b.onclick=()=>{sMode=b.dataset.sm;drawStats()});
 const step=s=>{if(sMode==='day')sAt=addDays(sAt,s);else if(sMode==='week')sAt=addDays(sAt,7*s);else if(sMode==='month')sAt=new Date(y,m+s,1,12);else sAt=new Date(y+s,0,1,12);drawStats()};
