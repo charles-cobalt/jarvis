@@ -85,12 +85,14 @@ const wmSvg=k=>{const s=document.querySelector('nav button[data-go="'+k+'"] svg'
 function drawToday(){const t=today(),v=$('#view');
 const Ha=items.filter(x=>x.kind==='habit'),Ta=items.filter(x=>x.kind==='task'),Sa=items.filter(x=>x.kind==='short'),Ga=items.filter(x=>x.kind==='long');
 const ringFor=(p,l)=>p===null?'<div><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="none" stroke="#2f2f2f" stroke-width="4"/><svg x="17" y="15.4" width="6" height="9.2" viewBox="0 0 1149 1749">'+CK.replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,'')+'</svg></svg><span>'+l+'</span></div>':sd(p,l);
-const catPct=L=>{const E=L.filter(x=>(x.dueDate||x.dueTime)&&dueReached(x));if(!E.length)return null;return Math.round(100*E.filter(x=>x.done).length/E.length)};
-const habPct=()=>{const D=Ha.filter(h=>occurs(h,new Date()));if(!D.length)return null;return Math.round(100*D.filter(satNow).length/D.length)};
-const longPct=()=>{const M=Ga.filter(g=>bridgePct(g)!==null||((g.dueDate||g.dueTime)&&dueReached(g)));if(!M.length)return null;return Math.round(100*M.reduce((a,g)=>{const b=bridgePct(g);return a+(b!==null?b:(g.done?1:0))},0)/M.length)};
+const catPct=L=>{if(!L.length)return null;return Math.round(100*L.filter(x=>x.done).length/L.length)};
+const lastSlot=h=>{const c=h.cadence||'daily',S=h.slots,t=new Date();if(c==='weekly'){const s=monOf(t);for(let d=new Date(t);d>=s;d.setDate(d.getDate()-1)){if(S.includes(d.getDay()))return d}return null}if(c==='monthly'){const f=new Date(t.getFullYear(),t.getMonth(),1,12);for(let d=new Date(t);d>=f;d.setDate(d.getDate()-1)){if(S.includes(womIdx(d)))return d}return null}for(let m=t.getMonth();m>=0;m--){if(S.includes(m+1))return new Date(t.getFullYear(),m,1,12)}return null};
+const habDone=h=>{const c=h.cadence||'daily';if(c==='daily')return satNow(h);if(!h.slots||!h.slots.length)return donePer(h,new Date());const d=lastSlot(h);return d?satOn(h,d):false};
+const habPct=()=>{if(!Ha.length)return null;return Math.round(100*Ha.filter(habDone).length/Ha.length)};
 const bridgeRow=()=>addLinkOn?'<div class="row add-cadence" style="margin-bottom:8px;flex-wrap:wrap;gap:6px">'+Ga.map(g=>'<button class="chip sm'+(addParent===g.id?' on':'')+'" style="flex:0 0 auto" data-abr="'+g.id+'">'+esc(g.name.slice(0,18))+'</button>').join('')+'</div>':'';
-const prgRings=()=>ringFor(habPct(),'Habits')+ringFor(catPct(Ta),'Tasks')+ringFor(catPct(Sa),'Short term')+ringFor(longPct(),'Long term');
-let h='<div class="twrap">'+wmSvg('today')+'<h1>Today</h1></div><h2>Progress</h2><div class="card dg" style="grid-template-columns:repeat(4,1fr)">'+prgRings()+'</div>';
+const longP=()=>{if(!Ga.length)return null;return Math.round(100*Ga.reduce((a,g)=>a+(g.done?1:(bridgePct(g)||0)),0)/Ga.length)};
+const prgRings=()=>ringFor(habPct(),'Habits')+ringFor(catPct(Ta),'Tasks')+ringFor(catPct(Sa),'Short term')+ringFor(longP(),'Long term');
+let h='<div class="twrap">'+wmSvg('today')+'<h1>The Process</h1></div><h2>Progress</h2><div class="card dg" style="grid-template-columns:repeat(4,1fr)">'+prgRings()+'</div>';
 if(Ha.length||!items.length)h+='<h2>Habits</h2><ul id="lh"></ul>';
 if(Ta.length)h+='<h2>Tasks</h2><ul id="lt"></ul>';
 if(Sa.length)h+='<h2>Short term</h2><ul id="ls"></ul>';
@@ -99,7 +101,7 @@ h+='<h2>Add</h2>'+'<form class="add" id="f" style="margin-bottom:10px"><input id
 v.innerHTML=h;
 const lists={habit:$('#lh'),task:$('#lt'),short:$('#ls'),long:$('#lg')};
 if(!items.length&&lists.habit)lists.habit.innerHTML='<div class="empty">Nothing yet. Add what you want to track.</div>';
-items.forEach((it,i)=>{const done=it.kind==='habit'?satNow(it):!!it.done;const li=document.createElement('li');li.className='card'+(done?' done':'');
+items.forEach((it,i)=>{const done=it.kind==='habit'?habDone(it):!!it.done;const li=document.createElement('li');li.className='card'+(done?' done':'');
 li.innerHTML='<button class="ck" aria-label="Done">'+CK+'</button><div class="t"></div>'+(it.kind==='habit'?'<div class="tag">'+habTag(it)+'</div>':ogTagFull(it))+'<button class="ic" aria-label="Edit">'+PEN+'</button><button class="ic" aria-label="Remove">'+X+'</button>';
 const tt=li.querySelector('.t');
 if(editing===i){li.style.paddingTop=(it.kind==='habit'||it.ts?'12px':'8px');const inp=document.createElement('input');inp.maxLength=80;inp.value=it.name;tt.appendChild(inp);let fin=false;const done2=()=>{if(fin)return;fin=true;it.name=inp.value.trim()||it.name;editing=-1;persist();draw()};inp.onkeydown=e=>{if(e.key==='Enter')done2()};inp.onblur=()=>{setTimeout(()=>{if(li.isConnected&&li.contains(document.activeElement))return;done2()},60)};setTimeout(()=>inp.focus(),0);
@@ -140,6 +142,7 @@ const bridgePct=g=>{if(!links(g).length)return null;const L=bridgeSteps(g);retur
 const bridgeBar=it=>{if(it.kind!=='long')return'';const L=bridgeSteps(it);if(!links(it).length||!L.length)return'';const d=L.filter(x=>x.done).length,pp=Math.round(100*d/L.length);return '<div class="pb"><i style="width:'+pp+'%"></i></div><div class="mu">'+d+' of '+L.length+' step'+(L.length>1?'s':'')+' &middot; '+(pp===0?'<svg style="width:10px;height:auto;display:inline-block;vertical-align:middle" viewBox="0 0 1149 1749">'+CKI+'</svg>':pp+'%')+'</div>'};
 const ogTagFull=it=>{let t2='';if(it.ts&&dueFmt(it))t2+=(overdue(it)?'Past due \u00b7 ':'')+dueFmt(it);if(it.kind==='long'){const L=bridgeSteps(it);if(L.length){const d=L.filter(x=>x.done).length;t2+=(t2?' \u00b7 ':'')+d+'/'+L.length+' step'+(L.length>1?'s':'')}}return t2?'<div class="tag'+(overdue(it)?' od':'')+'">'+t2+'</div>':''};
 const satNow=it=>satOn(it,new Date());
+const donePer=(h,d)=>{const c=h.cadence||'daily';return c==='daily'?(h.days||[]).includes(dk(d)):(h.days||[]).some(s=>pkeyS(s,c)===pkeyD(d,c))};
 function rng(a,b){const o=[];for(let d=new Date(a);d<=b;d=addDays(d,1))o.push(new Date(d));return o}
 const CKI=CK.replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,'');
 function sd(p,l){const R=15,C=2*Math.PI*R;return '<div><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="'+R+'" fill="none" stroke="#2f2f2f" stroke-width="4"/><circle cx="20" cy="20" r="'+R+'" fill="none" stroke="#e6e6e6" stroke-width="4" stroke-dasharray="'+(C*p/100)+' '+C+'" transform="rotate(-90 20 20)"/>'+(p===0?'<svg x="17" y="15.4" width="6" height="9.2" viewBox="0 0 1149 1749">'+CKI+'</svg>':'<text x="20" y="23" text-anchor="middle" fill="#f2f2f2" font-size="9" font-weight="600" font-family="inherit">'+p+'%</text>')+'</svg><span>'+l+'</span></div>'}
@@ -154,9 +157,9 @@ const inR=new Set(days.map(dk));
 const exp=h=>{const c=h.cadence||'daily',S=h.slots;if(c==='daily')return days.length*(S&&S.length?S.length:1);if(!S||!S.length)return new Set(days.map(d=>pkeyD(d,c))).size;if(c==='weekly')return days.filter(d=>S.includes(d.getDay())).length;if(c==='monthly')return new Set(days.filter(d=>S.includes(womIdx(d))).map(d=>d.getFullYear()+'-'+(d.getMonth()+1)+'W'+womIdx(d))).size;return new Set(days.filter(d=>S.includes(d.getMonth()+1)).map(d=>d.getFullYear()+'-'+(d.getMonth()+1))).size};
 const act=h=>{const c=h.cadence||'daily',S=h.slots;if(c==='daily'&&S&&S.length)return(h.slotsDone||[]).filter(s2=>inR.has(s2.split('@')[0])).length;if(!S||!S.length){const ps=new Set((h.days||[]).map(s2=>pkeyS(s2,c))),s3=new Set(days.map(d=>pkeyD(d,c)));let a=0;s3.forEach(k=>{if(ps.has(k))a++});return a}const ds=(h.days||[]).map(pDay).filter(d=>inR.has(dk(d)));if(c==='weekly')return ds.filter(d=>S.includes(d.getDay())).length;if(c==='monthly')return new Set(ds.filter(d=>S.includes(womIdx(d))).map(d=>d.getFullYear()+'-'+(d.getMonth()+1)+'W'+womIdx(d))).size;return new Set(ds.filter(d=>S.includes(d.getMonth()+1)).map(d=>d.getFullYear()+'-'+(d.getMonth()+1))).size};
 const sat=(h,d)=>satOn(h,d);
-const TK=OH.filter(x=>x.kind==='task'),SK=OH.filter(x=>x.kind==='short'),LK=OH.filter(x=>x.kind==='long');
+const TK=items.filter(x=>x.kind==='task'),SK=OH.filter(x=>x.kind==='short'),LK=OH.filter(x=>x.kind==='long');
 const t0=dk(new Date());
-const dueOn=(x,d)=>{if(!x.dueDate)return false;const k=dk(d);return dk(pDay(x.dueDate))===k||(k===t0&&!x.done&&pDay(x.dueDate)<d)};
+const dueOn=(x,d)=>{if(!x.dueDate)return x.done&&x.doneOn===dk(d);const k=dk(d);return dk(pDay(x.dueDate))===k||(k===t0&&!x.done&&pDay(x.dueDate)<d)};
 const inP=x=>days.some(d=>dueOn(x,d));
 const tkP=TK.filter(inP);
 const dayG=d=>HB.filter(h=>occurs(h,d)).length+TK.filter(x=>dueOn(x,d)).length;
@@ -190,7 +193,7 @@ if(sMode==='day')dn='<h2>Progress by period</h2>'+dgrid(4,sd(pc([sAt]),'Day')+sd
 else if(sMode==='week')dn='<h2>Daily</h2>'+dgrid(7,days.map((d,i)=>sd(pc([d]),['S','M','T','W','T','F','S'][i])).join(''))+'<h2>Year</h2>'+dgrid(4,sd(pc(yrDays(sAt)),'Year '+y));
 else if(sMode==='month'){const off=days[0].getDay();dn='<h2>Daily</h2>'+dgrid(7,'<div></div>'.repeat(off)+days.map(d=>sd(pc([d]),d.getDate())).join(''))+'<h2>Weekly</h2>'+dgrid(5,(()=>{const ws=[];days.forEach((d,i)=>{const k=Math.floor((i+off)/7);(ws[k]=ws[k]||[]).push(d)});return ws.map((w,k)=>sd(pc(w),'W'+(k+1))).join('')})())+'<h2>Year</h2>'+dgrid(4,sd(pc(yrDays(sAt)),'Year '+y))}
 else dn='<h2>Monthly</h2>'+dgrid(4,MN.map((x,i)=>sd(pc(moDays(new Date(y,i,1,12))),x.slice(0,3))).join(''));
-const uh=uGrp(UH.filter(x=>x.kind==='task'),'Tasks');
+const uh=uGrp(UH.filter(x=>x.kind==='task'&&!x.done),'Tasks');
 const an=HB.map(it=>{const a=act(it),g=exp(it),p=g?Math.round(100*a/g):0;return '<div class="card an"><div class="r1"><div>'+esc(it.name)+'</div><div>'+(p===0?'<svg style="width:12px;height:auto;display:inline-block;vertical-align:middle" viewBox="0 0 1149 1749">'+CKI+'</svg>':p+'%')+'</div></div><div class="pb"><i style="width:'+p+'%"></i></div><div class="mu">Goal '+g+' &middot; Actual '+a+' &middot; Left '+(g-a)+'</div></div>'}).join('');
 body=(n?'<h2>Overall progress</h2><div class="card dn">'+don+'<div><b>'+comp+'/'+goal+'</b><span>completed</span></div></div><div class="st3"><div><h2 style="margin-top:12px">Goal</h2><div class="stat"><b>'+goal+'</b></div></div><div><h2 style="margin-top:12px">Completed</h2><div class="stat"><b>'+comp+'</b></div></div><div><h2 style="margin-top:12px">Left</h2><div class="stat"><b>'+left+'</b></div></div></div>'+charts+dn+'<h2>Analysis</h2>'+an:'')+(tkP.length?'<h2>Tasks</h2>'+oGrp(tkP):'')+(uh?'<h2>Undated</h2>'+uh:'')}
 v.innerHTML=head+body;
