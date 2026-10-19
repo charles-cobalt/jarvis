@@ -37,6 +37,15 @@ input{width:100%;background:#141414;border:1px solid #333;color:var(--tx);paddin
 .row{display:flex;gap:8px}.row>*{flex:1}.chip{flex:1;text-align:center;background:var(--grad-mid);border:1px solid #3a3a3a;color:#d8d8d8;padding:11px 8px}.tag{flex:0 1 auto;min-width:0;max-width:32%;overflow-wrap:anywhere;text-align:right;line-height:1.8;font-size:9px;letter-spacing:.08em;color:var(--mu);text-transform:uppercase;font-weight:600}.chip.sm{font-size:10px;white-space:nowrap;padding:11px 2px}.add-kind .chip,.add-cadence .chip{display:flex;align-items:center;justify-content:center;font-size:10px;line-height:12px;letter-spacing:-.02em;text-transform:uppercase;white-space:normal;box-sizing:border-box;height:40px;min-height:40px;padding:2px 1px}.chip.on{background:var(--grad-hi);border-color:#d8d8d8;color:#111;font-weight:700}
 .lgrid{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 .lgrid .chip.sm{flex:0 1 auto;max-width:100%;display:flex;align-items:center;justify-content:flex-start;font-size:10px;line-height:12px;letter-spacing:-.02em;text-transform:uppercase;white-space:normal;text-align:left;box-sizing:border-box;min-height:40px;height:auto;padding:2px 10px;overflow-wrap:anywhere}
+.vh{margin:30px 0 2px}
+.vcard{display:block;padding-top:2px;padding-bottom:2px}
+.vt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0}
+.vt+.vt{border-top:1px solid #262626}
+.vt-r{display:flex;align-items:center;gap:12px;flex:none}
+.vt .mu{font-size:13px}
+.vt .ck.on:before{display:none}
+.vt .ck.on svg{display:block}
+.vw-in input{background:#1a1a1a;border:1px solid #3a3a3a;color:var(--tx);padding:7px 8px;font:inherit;font-size:13px;width:108px;text-align:center;color-scheme:dark}
 .lnk{color:var(--mu);padding:12px 4px;display:inline-block;font-size:13px;letter-spacing:.02em}.lnk:active{color:var(--tx)}
 .btn{display:block;text-align:center;background:var(--grad-hi);color:#111;border:1px solid #d8d8d8;padding:13px 16px;font-weight:700;letter-spacing:.02em;margin-top:10px}
 .btn.sec{background:var(--grad-mid);color:#e6e6e6;border:1px solid #3a3a3a;font-weight:600}
@@ -104,7 +113,11 @@ if(Ta.length)h+='<h2>Tasks</h2><ul id="lt"></ul>';
 if(Sa.length)h+='<h2>Short term</h2><ul id="ls"></ul>';
 if(Ga.length)h+='<h2>Long term</h2><ul id="lg"></ul>';
 h+='<h2>Add</h2>'+'<form class="add" id="f" style="margin-bottom:10px"><input id="in" type="text" maxlength="80" placeholder="'+({habit:'Add a habit',task:'Add a task',short:'Add a short term',long:'Add a long term'})[addKind]+'" autocomplete="off">'+(addKind==='short'&&Ga.length?'<button class="ic" type="button" aria-label="Link to a long term" data-alk="1"'+(addLinkOn?' style="color:#f2f2f2"':'')+'>'+LNK+'</button>':'')+'<button class="ic" type="submit" aria-label="Add">'+PLUS+'</button></form>'+'<div class="row add-kind" style="margin-bottom:8px">'+KINDS.map(([k,l])=>'<button class="chip'+(addKind===k?' on':'')+'" data-ak="'+k+'">'+l+'</button>').join('')+'</div>'+(addKind==='habit'?'<div class="row add-cadence" style="margin-bottom:8px">'+Object.keys(CAD).map(k=>'<button class="chip'+(addCad===k?' on':'')+'" data-ac="'+k+'">'+CAD[k]+'</button>').join('')+'</div>'+slotPicker(addCad,addSlots,'data-asl'):'<div class="row add-cadence" style="margin-bottom:8px"><button class="chip sm'+(addTS?' on':'')+'" data-ats="1">TIME SENSITIVE</button></div>'+(addTS?'<div class="dt" style="margin-bottom:8px"><label class="dt-field is-empty"><input id="ad" type="date" aria-label="Due date"><span aria-hidden="true">Due date</span></label><label class="dt-field is-empty"><input id="at" type="time" aria-label="Due time"><span aria-hidden="true">Due time</span></label></div>':''))+(addKind==='short'&&Ga.length?bridgeRow():'');
+h+=vitalsHtml();
 v.innerHTML=h;
+const _vw=$('#vw');if(_vw)_vw.onchange=()=>{vDay(today()).wake=_vw.value;persistV();draw()};
+v.querySelectorAll('[data-vck]').forEach(b=>b.onclick=()=>{const vd=vDay(today()),id=b.dataset.vck;vd.done=vd.done.includes(id)?vd.done.filter(x=>x!==id):vd.done.concat([id]);persistV();draw()});
+v.querySelectorAll('[data-vadd]').forEach(b=>b.onclick=()=>{const vd=vDay(today());vd.extra.push(b.getAttribute('data-vadd'));persistV();draw()});
 const lists={habit:$('#lh'),task:$('#lt'),short:$('#ls'),long:$('#lg')};
 if(!items.length&&lists.habit)lists.habit.innerHTML='<div class="empty">Nothing yet. Add what you want to track.</div>';
 items.forEach((it,i)=>{const done=it.kind==='habit'?habDone(it):!!it.done;const li=document.createElement('li');li.className='card'+(done?' done':'');
@@ -129,6 +142,24 @@ $('#f').onsubmit=e=>{e.preventDefault();const val=$('#in').value.trim();if(!val)
 let sMode='month',sAt=new Date();sAt.setHours(12,0,0,0);
 const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const dk=d=>d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+const VK='jarvis.vitals.v1';
+let vitals;try{vitals=JSON.parse(localStorage.getItem(VK)||'{"days":{}}')}catch(e){vitals={days:{}}}
+const persistV=()=>localStorage.setItem(VK,JSON.stringify(vitals));
+const vDay=k=>{const r=vitals.days[k]||(vitals.days[k]={wake:'',extra:[],done:[]});if(typeof r.extra==='number')r.extra=Array.from({length:r.extra},()=>'snack');return r};
+const VSLOTS=[['meal1','Meal 1',0],['snack1','Snack 1',3],['meal2','Meal 2',6],['snack2','Snack 2',9],['meal3','Meal 3',12],['snack3','Snack 3',15]];
+const vSlots=vd=>{const L=VSLOTS.slice();let nm=3,ns=3,off=15;(vd.extra||[]).forEach(t=>{off+=3;if(t==='meal'){nm++;L.push(['meal'+nm,'Meal '+nm,off])}else{ns++;L.push(['snack'+ns,'Snack '+ns,off])}});return L};
+const parseTm=s=>{const p=(s||'').split(':');return p.length===2&&p[0]!==''?(+p[0])*60+(+p[1]):null};
+const fmtTm=m=>{m=((m%1440)+1440)%1440;let hh=Math.floor(m/60);const ap=hh>=12?'PM':'AM';hh=hh%12||12;return hh+':'+String(m%60).padStart(2,'0')+' '+ap};
+const vitalsHtml=()=>{
+const vd=vDay(today()),slots=vSlots(vd),w=parseTm(vd.wake),na='<span>Set awakening</span>';
+const trow=(l,r)=>'<div class="vt"><div>'+l+'</div><div class="mu">'+r+'</div></div>';
+let s='<div class="twrap"><svg class="wm" viewBox="0 0 599 532" fill="currentColor"><path d="M0,0 L13,0 L23,3 L31,10 L35,21 L39,35 L41,48 L41,62 L38,70 L38,82 L40,87 L57,96 L65,102 L65,104 L69,106 L79,114 L85,119 L89,118 L93,116 L108,116 L113,114 L123,122 L129,128 L129,130 L131,130 L139,145 L141,152 L141,164 L138,169 L130,176 L131,181 L138,197 L145,212 L151,229 L155,246 L160,248 L165,254 L170,263 L178,272 L186,276 L193,284 L201,297 L211,312 L219,319 L225,324 L233,338 L238,353 L238,360 L235,370 L230,375 L219,383 L214,384 L208,383 L200,384 L193,375 L193,364 L188,354 L181,346 L181,344 L179,344 L174,339 L161,329 L156,324 L146,315 L141,306 L128,293 L128,291 L124,289 L117,281 L114,272 L114,264 L111,254 L106,246 L97,236 L95,236 L89,248 L86,251 L84,277 L84,291 L88,296 L93,310 L101,336 L103,349 L111,374 L113,386 L114,406 L114,443 L113,459 L110,472 L107,473 L105,479 L109,487 L107,494 L98,498 L79,502 L44,502 L24,501 L20,498 L17,467 L16,437 L17,434 L24,431 L27,430 L30,421 L32,417 L35,396 L35,364 L34,335 L32,315 L27,294 L23,259 L19,246 L17,243 L-3,236 L-23,229 L-31,224 L-35,220 L-36,216 L-32,210 L-29,186 L-28,170 L-31,161 L-35,157 L-41,153 L-43,150 L-47,149 L-63,149 L-72,155 L-76,159 L-79,167 L-80,171 L-81,188 L-79,200 L-77,207 L-71,214 L-70,217 L-70,227 L-74,235 L-82,241 L-98,250 L-108,258 L-110,259 L-111,279 L-113,294 L-118,306 L-131,327 L-134,332 L-133,339 L-133,365 L-135,368 L-140,367 L-145,365 L-146,369 L-142,371 L-126,374 L-123,378 L-124,383 L-133,390 L-141,392 L-159,392 L-169,385 L-173,377 L-174,367 L-179,359 L-181,354 L-183,343 L-183,322 L-178,301 L-175,298 L-172,297 L-171,270 L-166,258 L-157,243 L-153,245 L-152,251 L-148,249 L-147,242 L-137,229 L-130,225 L-123,213 L-117,196 L-108,179 L-109,174 L-111,170 L-111,167 L-115,171 L-119,171 L-121,167 L-122,160 L-122,150 L-120,140 L-115,129 L-109,120 L-99,112 L-89,106 L-84,104 L-75,104 L-72,105 L-64,105 L-58,100 L-53,95 L-46,90 L-32,85 L-26,85 L-22,88 L-23,78 L-27,64 L-29,47 L-29,17 L-25,11 L-16,4 L-11,2 Z M17,28 L7,30 L8,32 L21,32 L23,30 L20,28 Z M-22,34 L-25,36 L-25,39 L-18,38 L-13,35 L-13,34 Z M37,155 L32,158 L28,164 L27,170 L31,178 L33,178 L34,181 L41,184 L48,184 L55,178 L56,175 L56,167 L54,162 L48,156 L44,155 Z M202,345 L200,347 L200,354 L205,359 L211,358 L213,355 L212,349 L209,345 Z " transform="translate(271,30)"/><path d="M0,0 L3,1 L6,7 L9,9 L13,8 L12,13 L7,16 L-6,16 L-10,12 L-10,10 L-6,9 L-2,1 Z " transform="translate(215,234)"/><path d="M0,0 L5,1 L7,3 L6,8 L5,13 L9,26 L9,39 L5,49 L-1,60 L-3,60 L-8,49 L-12,36 L-11,24 L-5,6 L-2,1 Z " transform="translate(215,260)"/><path d="M0,0 L4,1 L15,31 L23,54 L23,57 L21,58 L-15,58 L-16,53 L-9,29 L-4,11 L-1,1 Z " transform="translate(222,473)"/></svg><h1 class="vh">The Vitals</h1></div>';
+s+='<div class="card vcard"><div class="vt"><div>Awakening</div><div class="vw-in"><input id="vw" type="time" value="'+esc(vd.wake||'')+'" aria-label="Awakening time"></div></div></div>';
+s+='<div class="card vcard">'+trow('Autophagy Window',w===null?na:fmtTm(w)+' &middot; '+fmtTm(w+480))+trow('Gym Peak Window',w===null?na:fmtTm(w+120)+' &middot; '+fmtTm(w+240))+'</div>';
+s+='<div class="card vcard">'+slots.map(([id,label,off])=>'<div class="vt"><div>'+label+'</div><div class="vt-r"><span class="mu">'+(w===null?'--':fmtTm(w+off*60))+'</span><button class="ck'+(vd.done.includes(id)?' on':'')+'" data-vck="'+id+'" aria-label="Done">'+CK+'</button></div></div>').join('')+'</div>';
+s+='<div class="row add-cadence" style="margin:0 0 8px"><button class="chip sm" data-vadd="snack">+ Add snack</button></div>';
+s+='<div class="row add-cadence" style="margin:0 0 8px"><button class="chip sm" data-vadd="meal">+ Add meal</button></div>';
+return s};
 const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
 const monOf=d=>addDays(d,-d.getDay()); const EOW=6;
 const pDay=s=>{const a=s.split('-');return new Date(+a[0],+a[1]-1,+a[2],12)};
@@ -202,6 +233,7 @@ else if(sMode==='month'){const off=days[0].getDay();dn='<h2>Daily</h2>'+dgrid(7,
 else dn='<h2>Monthly</h2>'+dgrid(4,MN.map((x,i)=>sd(pc(moDays(new Date(y,i,1,12))),x.slice(0,3))).join(''));
 const uh=uGrp(UH.filter(x=>x.kind==='task'&&!x.done),'Tasks');
 const an=HB.map(it=>{const a=act(it),g=exp(it),p=g?Math.round(100*a/g):0;return '<div class="card an pbx"><div class="ac"><div class="r1"><div>'+esc(it.name)+'</div></div><div class="pb"><i style="width:'+p+'%"></i></div><div class="mu">Goal '+g+' &middot; Actual '+a+' &middot; Left '+(g-a)+'</div></div><div class="a2">'+(p===0?'<svg style="width:12px;height:auto;display:inline-block;vertical-align:middle" viewBox="0 0 1149 1749">'+CKI+'</svg>':p+'%')+'</div></div>'}).join('');
+
 body=(n?'<h2>Overall progress</h2><div class="card dn">'+don+'<div><b>'+comp+'/'+goal+'</b><span>completed</span></div></div><div class="st3"><div><h2 style="margin-top:12px">Goal</h2><div class="stat"><b>'+goal+'</b></div></div><div><h2 style="margin-top:12px">Completed</h2><div class="stat"><b>'+comp+'</b></div></div><div><h2 style="margin-top:12px">Left</h2><div class="stat"><b>'+left+'</b></div></div></div>'+charts+dn+'<h2>Analysis</h2>'+an:'')+(tkP.length?'<h2>Tasks</h2>'+oGrp(tkP):'')+(uh?'<h2>Undated</h2>'+uh:'')}
 v.innerHTML=head+body;
 v.querySelectorAll('[data-sm]').forEach(b=>b.onclick=()=>{sMode=b.dataset.sm;drawStats()});
