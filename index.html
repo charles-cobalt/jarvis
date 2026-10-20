@@ -136,16 +136,16 @@ function applyM(M){const b=buildFrom(M.u,M.ord);items=b.its.map(norm);vitals=b.v
  if(M.th&&M.th!==(localStorage.getItem('jarvis.theme')||'')){localStorage.setItem('jarvis.theme',M.th);applyTheme()}
  SY.thH=localStorage.getItem('jarvis.theme')||'';SY.thAt=M.thAt;saveSY()}
 const encDoc=(M,ra)=>{const b=buildFrom(M.u,M.ord);return {ver:2,items:b.its,v:JSON.stringify(b.v),m:JSON.stringify({mt:M.mt,del:M.del,ord:M.ord,ordAt:M.ordAt}),theme:M.th||'',themeAt:M.thAt||0,updated:Date.now(),resetAt:ra}};
-let pushT=0,pushing=false,again=false,rev=0;
+let pushT=0,pushing=false,again=false,rev=0,mailSt={};
 function schedPush(d){if(user){clearTimeout(pushT);pushT=setTimeout(doSync,d===undefined?300:d)}}
 async function doSync(){if(!user)return;if(pushing){again=true;return}pushing=true;const me=user.uid,r0=rev;
  try{stamp(!SY.synced);let out=null;const ref=doc(db,'users',me);
   await runTransaction(db,async tx=>{const s=await tx.get(ref),seen=+localStorage.getItem(RSK)||0,L=localState();
-   if(!s.exists()){out={M:L,ra:seen,write:true};return tx.set(ref,encDoc(L,seen))}
-   const d=s.data(),ra=d.resetAt||0,R=decode(d);
+   if(!s.exists()){out={M:L,ra:seen,write:true};return tx.set(ref,encDoc(L,seen),{merge:true})}
+   const d=s.data(),ra=d.resetAt||0,R=decode(d);mailSt=jl(d.mailState)||{};
    if(ra>seen){out={M:R,ra,write:false,adopt:true};return}
-   if(seen>ra){out={M:L,ra:seen,write:true};return tx.set(ref,encDoc(L,seen))}
-   const M=merge(L,R);out={M,ra,write:sigOf(M)!==sigOf(R)};if(out.write)tx.set(ref,encDoc(M,ra))});
+   if(seen>ra){out={M:L,ra:seen,write:true};return tx.set(ref,encDoc(L,seen),{merge:true})}
+   const M=merge(L,R);out={M,ra,write:sigOf(M)!==sigOf(R)};if(out.write)tx.set(ref,encDoc(M,ra),{merge:true})});
   if(user&&user.uid===me&&out&&rev!==r0)again=true;
   else if(user&&user.uid===me&&out){if(out.adopt)localStorage.setItem(RSK,String(out.ra));
    if(out.adopt||sigOf(out.M)!==sigOf(localState())){applyM(out.M);if(editing<0)draw()}
@@ -641,12 +641,32 @@ function stBind(v){
    else if(val==="go"){if(ST.rchk&&ST.rtxt.trim().toUpperCase()==="RESET"){items=[];vitals={days:{}};persistV();localStorage.setItem(RK,String(Date.now()));persist();ST.rst=false;ST.rchk=false;ST.rtxt="";ST.pend=null;ST.rnote="Account reset. Everything is empty.";ST.bnote=""}else ST.rnote="Tick the box and type RESET first."}}
   draw()})}
 
+
+const MAILC=[["w","Weekly"],["b","Bi-weekly"],["m","Monthly"],["y","Yearly"]];
+function mailGet(){const m=vitals.mail||{};return {on:!!m.on,to:m.to||'',cad:Object.assign({w:true,b:false,m:true,y:false},m.cad||{}),cats:Object.assign({habit:true,task:true,short:true,long:true},m.cats||{}),met:Object.assign({summary:true,items:true,days:false,weeks:true,months:true,streaks:true,improve:true},m.met||{}),code:m.code||'',test:m.test||0,tz:m.tz||'',since:m.since||''}}
+function mailSet(m){m.tz=Intl.DateTimeFormat().resolvedOptions().timeZone||'';if(m.on&&!m.since){const d=new Date();m.since=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}vitals.mail=m;persistV()}
+function mailHtml(){if(!user)return '<h2>Auto emails</h2><div class="card p"><div class="mu">Sign in to set up automatic statement emails.</div></div>';
+ const m=mailGet(),ok=mailSt.verified&&mailSt.verified===m.to.toLowerCase(),pend=mailSt.pend&&mailSt.pend.to===m.to.toLowerCase();
+ const st=!m.on?'Off.':!m.to?'Enter an email address.':ok?'Confirmed. Reports go to '+esc(m.to)+'.':pend?'A 6-digit code was sent to '+esc(m.to)+'. Enter it below. The sender checks about once an hour.':'Saved. A code will be sent to '+esc(m.to)+' within about an hour.';
+ const chip=(g,k,l,on)=>`<button class="chip ${on?'on':''}" data-mg="${g}" data-mk="${k}">${l}</button>`;
+ return `<h2>Auto emails</h2><div class="card p"><div class="mu" style="margin-bottom:8px">Get your performance statement by email on a schedule, as a full summary in the email plus a PDF. Off unless you turn it on.</div><div class="row"><button class="chip ${m.on?'on':''}" data-mg="on">On</button><button class="chip ${!m.on?'on':''}" data-mg="off">Off</button></div>
+ <label class="f">Send to</label><input id="mto" type="email" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(m.to)}">
+ <label class="f">How often</label><div class="row">${MAILC.map(c=>chip('cad',c[0],c[1],m.cad[c[0]])).join('')}</div>
+ <label class="f">Include item types</label><div class="row">${CATS.map(c=>chip('cats',c[0],c[1],m.cats[c[0]])).join('')}</div>
+ <label class="f">Include sections</label><div class="row" style="flex-wrap:wrap">${MET.map(c=>chip('met',c[0],c[1],m.met[c[0]])).join('')}</div>
+ ${m.on&&m.to&&!ok?'<label class="f">Confirmation code</label><input id="mcode" inputmode="numeric" autocomplete="off" maxlength="6" value="'+esc(m.code)+'">':''}
+ <div class="mu" style="margin-top:8px">${st}${mailSt.err?' '+esc(mailSt.err):''}${mailSt.last?' Last sent: '+esc(mailSt.last)+'.':''}</div>
+ <div class="row" style="margin-top:10px"><button class="btn sec" id="msave" style="margin-top:0">Save</button>${ok?'<button class="btn sec" id="mtest" style="margin-top:0">Send a sample</button>':''}</div>
+ <div class="mu" style="margin-top:8px">Weekly = last Sunday to Saturday. Bi-weekly = every other week. Monthly = last month. Yearly = last year. Sent around 7 AM your time. Turn it off any time.</div></div>`}
+function mailBind(v){v.querySelectorAll('[data-mg]').forEach(b=>b.onclick=()=>{const m=mailGet(),g=b.dataset.mg,k=b.dataset.mk;const to=$('#mto');if(to)m.to=to.value.trim();if(g==='on')m.on=true;else if(g==='off')m.on=false;else m[g][k]=!m[g][k];mailSet(m);draw()});
+ const sv=$('#msave');if(sv)sv.onclick=()=>{const m=mailGet(),to=$('#mto'),cd=$('#mcode');if(to){const t=to.value.trim();if(t&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(t)){msg='That email does not look right.';draw();return}if(t.toLowerCase()!==m.to.toLowerCase())m.code='';m.to=t}if(cd)m.code=cd.value.trim();mailSet(m);msg='Saved.';schedPush(0);draw()};
+ const ts=$('#mtest');if(ts)ts.onclick=()=>{const m=mailGet();m.test=Date.now();mailSet(m);msg='Sample requested. It arrives within about an hour.';draw()}}
 function drawSettings(){const th=theme(),v=$('#view');
 let acct;
 if(user){acct=`<div class="card p"><div>${esc(user.email)}</div><div class="mu" style="margin-top:4px">${user.emailVerified?'Email verified. Synced across your devices.':'Email not verified yet. Check your inbox. Synced across your devices.'}${syncAt?' Last synced '+new Date(syncAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+'.':''}</div>${user.emailVerified?'':'<button class="lnk" id="resend">Resend verification email</button><br><button class="lnk" id="chk">I verified my email</button><br>'}<button class="lnk" id="syncnow">Sync now</button><br><button class="lnk" id="out">Sign out</button></div>`}
 else{acct=`<div class="card p"><div class="mu" style="margin-bottom:4px">Signed out. Your list is saved on this device only.</div><label class="f">Email</label><input id="em" type="email" autocomplete="email" autocapitalize="off" spellcheck="false"><label class="f">Password</label><input id="pw" type="password" autocomplete="current-password"><div class="row" style="margin-top:10px"><button class="btn go" data-a="in" style="margin-top:0">Sign in</button><button class="btn sec go" data-a="up" style="margin-top:0">Create account</button></div><div class="row" style="margin-top:10px"><button class="btn sec go" data-a="reset" style="margin-top:0">Forgot password</button></div></div>`}
-v.innerHTML=`<div class="twrap">${wmSvg('settings')}<h1>Settings</h1></div><h2>Theme</h2><div class="row">${['night','day','auto'].map(k=>`<button class="chip ${th===k?'on':''}" data-th="${k}">${k[0].toUpperCase()+k.slice(1)}</button>`).join('')}</div><h2>Account</h2>${acct}<div class="msg" id="msg">${esc(msg)}</div>${stSettingsHtml()}<div id="dietbox">${dietHtml()}</div>${stResetHtml()}`;
-bindDiet(v);v.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{localStorage.setItem('jarvis.theme',b.dataset.th);applyTheme();if(user){if(SY.synced)stamp();schedPush()}draw()});
+v.innerHTML=`<div class="twrap">${wmSvg('settings')}<h1>Settings</h1></div><h2>Theme</h2><div class="row">${['night','day','auto'].map(k=>`<button class="chip ${th===k?'on':''}" data-th="${k}">${k[0].toUpperCase()+k.slice(1)}</button>`).join('')}</div><h2>Account</h2>${acct}<div class="msg" id="msg">${esc(msg)}</div>${stSettingsHtml()}${mailHtml()}<div id="dietbox">${dietHtml()}</div>${stResetHtml()}`;
+bindDiet(v);mailBind(v);v.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{localStorage.setItem('jarvis.theme',b.dataset.th);applyTheme();if(user){if(SY.synced)stamp();schedPush()}draw()});
 v.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{mode=b.dataset.m;msg='';draw()});
 v.querySelectorAll('.go').forEach(go=>go.onclick=async()=>{const a=go.dataset.a,em=$('#em').value.trim(),pw=$('#pw')?$('#pw').value:'';msg='';
 try{if(a==='reset'){await sendPasswordResetEmail(auth,em);msg='Reset link sent if that email has an account.'}
@@ -658,6 +678,10 @@ stBind(v)}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{page=b.dataset.go;editing=-1;draw()});
 $('#home').onclick=()=>{page='today';editing=-1;draw();scrollTo(0,0)};
 matchMedia('(prefers-color-scheme: light)').addEventListener('change',applyTheme);
+
+window.__jarvisReport=function(data,o){items=(data.items||[]).map(norm);vitals=data.vitals||{days:{}};const m=stBuild(o);if(m.err)return {err:m.err};
+ const b64=u=>{let s2='';for(let i=0;i<u.length;i+=0x8000)s2+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s2)};
+ return {title:m.title||'',from:m.from,to:m.to,html:stPreview(m),pdf:b64(mkPdf(m)),csv:mkCsv(m),txt:mkTxt(m),sections:m.sections.map(x=>x.t)}};
 onAuthStateChanged(auth,u=>{user=u;if(unsub){unsub();unsub=null}
  if(u){switchOwner(u.uid);unsub=onSnapshot(doc(db,'users',u.uid),s=>{if(!s.metadata.hasPendingWrites)schedPush(50)},e=>{msg='Sync unavailable: '+e.code;draw()});schedPush(50)}
  else switchOwner('');
