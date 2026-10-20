@@ -1,0 +1,30 @@
+name: auto-email
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 20}
+      - run: cd mailer && npm install --no-audit --no-fund
+      - run: node mailer/send.mjs
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          MAIL_CODE_SALT: ${{ secrets.MAIL_CODE_SALT }}
+          MAIL_PROVIDER: ${{ secrets.MAIL_PROVIDER }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+      - name: keep-alive (scheduled workflows pause after 60 days without repo activity)
+        run: |
+          if [ "$(date +%d)" = "01" ] && [ "$(date +%H)" = "08" ]; then
+            git config user.name "jarvis-keepalive"; git config user.email "jarvis3000@mail.instinct.com"
+            date -u +%FT%TZ > mailer/.keepalive; git add mailer/.keepalive; git commit -m "keep-alive" && git push || true
+          fi
