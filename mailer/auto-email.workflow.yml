@@ -20,10 +20,11 @@ jobs:
           MAIL_PROVIDER: ${{ secrets.MAIL_PROVIDER }}
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
           MAIL_FROM: ${{ secrets.MAIL_FROM }}
-          GMAIL_USER: ${{ secrets.GMAIL_USER }}
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
       - name: keep-alive (scheduled workflows pause after 60 days without repo activity)
+        env:
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
         run: |
+          if [ "$(date +%d)" = "01" ] && [ "$(date +%H)" = "08" ]; then curl -s -o /dev/null -H "api-key: $BREVO_API_KEY" https://api.brevo.com/v3/account; fi
           if [ "$(date +%d)" = "01" ] && [ "$(date +%H)" = "08" ]; then
             git config user.name "jarvis-keepalive"; git config user.email "jarvis3000@mail.instinct.com"
             date -u +%FT%TZ > mailer/.keepalive; git add mailer/.keepalive; git commit -m "keep-alive" && git push || true
