@@ -96,7 +96,7 @@ const X='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width
 const PLUS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12h14"/></svg>'; const LNK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
 function theme(){return localStorage.getItem('jarvis.theme')||'auto'}
 function applyTheme(){const t=theme();const d=t==='day'||(t==='auto'&&matchMedia('(prefers-color-scheme: light)').matches);document.documentElement.classList.toggle('day',d);const m=document.querySelector('meta[name=theme-color]');if(m)m.content=d?'#ededed':'#121212'}
-function draw(){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.go===page));page==='today'?drawToday():page==='stats'?drawStats():drawSettings()}
+function draw(){const _v=document.querySelector('#view');if(_v){_v.oninput=null;_v.onclick=null}document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.go===page));page==='today'?drawToday():page==='stats'?drawStats():drawSettings()}
 const wmSvg=k=>{const s=document.querySelector('nav button[data-go="'+k+'"] svg');return s?'<svg class="wm" viewBox="'+s.getAttribute('viewBox')+'" fill="currentColor">'+s.innerHTML+'</svg>':''};
 function drawToday(){const t=today(),v=$('#view');
 const Ha=items.filter(x=>x.kind==='habit'),Ta=items.filter(x=>x.kind==='task'),Sa=items.filter(x=>x.kind==='short'),Ga=items.filter(x=>x.kind==='long');
@@ -117,7 +117,7 @@ h+='<h2>Add</h2>'+'<form class="add" id="f" style="margin-bottom:10px"><input id
 h+=vitalsHtml();
 v.innerHTML=h;
 const _vw=$('#vw');if(_vw)_vw.onchange=()=>{vDay(dk(vAt)).wake=_vw.value;persistV();draw()};
-v.querySelectorAll('[data-vf]').forEach(inp=>{const id=inp.dataset.vf;inp.addEventListener('input',()=>{const vd=vDay(dk(vAt));vd.food=vd.food||{};vd.food[id]=inp.value;persistV();const m=v.querySelector('[data-vm="'+id+'"]');if(m)m.innerHTML=macroLine(inp.value)})});
+v.querySelectorAll('[data-vf]').forEach(inp=>{const id=inp.dataset.vf;inp.addEventListener('input',()=>{const vd=vDay(dk(vAt));vd.food=vd.food||{};vd.food[id]=inp.value;persistV();const m=v.querySelector('[data-vm="'+id+'"]');if(m)m.innerHTML=macroLine(inp.value);const dl=v.querySelector('#dline');if(dl)dl.innerHTML=dietLine()})});
 v.querySelectorAll('[data-vck]').forEach(b=>b.onclick=()=>{const vd=vDay(dk(vAt)),id=b.dataset.vck;vd.done=vd.done.includes(id)?vd.done.filter(x=>x!==id):vd.done.concat([id]);persistV();draw()});
 v.querySelectorAll('[data-vadd]').forEach(b=>b.onclick=()=>{const vd=vDay(dk(vAt));vd.extra.push(b.getAttribute('data-vadd'));persistV();draw()});
 v.querySelectorAll('[data-vnav]').forEach(b=>b.onclick=()=>{vAt=addDays(vAt,+b.getAttribute('data-vnav'));draw()});
@@ -193,6 +193,35 @@ if(r.unknown.length===r.n)return '? '+esc(r.unknown.join(', '));
 let s='<b>'+Math.round(r.kcal)+' cal</b> &middot; C '+Math.round(r.c)+'g &middot; P '+Math.round(r.p)+'g &middot; F '+Math.round(r.f)+'g';
 if(r.unknown.length)s+=' &middot; ? '+esc(r.unknown.join(', '));
 return s};
+const DIET=[['cut','Cut Phase','Apr - May',[2250,2350],[170,175],[170,210],[65,70],[750,780]],['maintain','Maintain Phase','Jun - Sep',[2450,2550],[170,175],[180,230],[70,80],[820,850]],['perf','Performance Phase','Oct - Mar',[2700,2800],[170,175],[240,290],[80,90],[900,930]]];
+const dietAuto=()=>{const m=vAt.getMonth()+1;return m>=4&&m<=5?'cut':m>=6&&m<=9?'maintain':'perf'};
+const dietSch=()=>vitals.sched||{};
+const dietCur=()=>{const k=dk(vAt),pk=x=>{const a=x.split('-');return +a[0]*10000+(+a[1])*100+(+a[2])},n=pk(k);let best=null,bs='';const S=dietSch();Object.keys(S).forEach(m=>{const r=S[m]||{};if(!r.from)return;if(r.from<=iso(vAt)&&(!r.to||iso(vAt)<=r.to)&&r.from>=bs){best=m;bs=r.from}});return best||dietAuto()};
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const rgS=(r,u)=>r[0]+' - '+r[1]+(u||'');
+const dietToday=()=>{const vd=vDay(dk(vAt)),fd=vd.food||{},T={kcal:0,p:0,c:0,f:0};Object.keys(fd).forEach(id=>{const r=parseLine(fd[id]||'');T.kcal+=r.kcal;T.p+=r.p;T.c+=r.c;T.f+=r.f});const B=[['Breakfast + snack','meal1','snack1'],['Lunch + snack','meal2','snack2'],['Dinner + snack','meal3','snack3']].map(([l,a,b])=>[l,parseLine(fd[a]||'').kcal+parseLine(fd[b]||'').kcal]);return{T,B}};
+const BODY=[['age','Age','35'],['wr','Healthy weight range for build','168 - 178 lbs'],['ht','Height','5\'10"'],['bf','Target body fat','11%'],['wa','Target waist','32"'],['tw','Target weight','165 - 170 lbs'],['tr','Training','4 days/week ~ 1 hour per session']];
+const bodyV=k=>{const b=vitals.body||{};return b[k]!==undefined?b[k]:BODY.find(x=>x[0]===k)[2]};
+const stat=(v,r,u)=>{v=Math.round(v);if(!v)return'';if(v<r[0])return'UNDER '+(r[0]-v)+u;if(v>r[1])return'OVER '+(v-r[1])+u;return'IN RANGE'};
+const dietHtml=()=>{
+const cur=dietCur(),{T,B}=dietToday(),S=dietSch();
+const tr=(l,r,v,u)=>'<div class="vt"><div>'+l+'</div><div class="mu">'+(v!==undefined?'<b style="color:var(--tx)">'+Math.round(v)+'</b> / ':'')+rgS(r,u)+(v!==undefined&&stat(v,r,u)?' &middot; <b style="color:var(--tx)">'+stat(v,r,u)+'</b>':'')+'</div></div>';
+const bs=(l,k)=>'<div class="vt"><div>'+l+'</div><input class="bsi" data-bs="'+k+'" value="'+esc(bodyV(k))+'" aria-label="'+l+'" style="all:unset;text-align:right;color:var(--mu);font-size:13px;width:55%;min-height:0;height:auto;padding:0;border:0;background:none;box-sizing:border-box"></div>';
+let h='<h2 style="margin:14px 2px 6px">Targets</h2><div class="card vcard">'+BODY.map(x=>bs(x[1],x[0])).join('')+'</div>';
+h+='<h2 style="margin:14px 2px 6px">Diet phases</h2>';
+DIET.forEach(d=>{const on=d[0]===cur,sc=S[d[0]]||{};
+h+='<div class="card vcard" style="'+(on?'border-color:#e6e6e6':'opacity:.72')+'"><div class="vt"><div>'+d[1]+' &middot; '+rgS(d[3],' cal')+'</div><button class="chip sm'+(on?' on':'')+'" style="flex:none;width:84px" data-dmsel="'+d[0]+'">'+(on?'On':'Turn on')+'</button></div>';
+h+='<div class="vt"><div>Starts</div><div class="vw-in"><input type="date" data-dsf="'+d[0]+'" value="'+esc(sc.from||'')+'" aria-label="Start"></div></div><div class="vt"><div>Ends</div><div class="vw-in"><input type="date" data-dst="'+d[0]+'" value="'+esc(sc.to||'')+'" aria-label="End"></div></div>';
+h+=tr('Protein',d[4],on?T.p:undefined,'g')+tr('Carbs',d[5],on?T.c:undefined,'g')+tr('Fat',d[6],on?T.f:undefined,'g');
+if(on)h+=tr('Calories',d[3],T.kcal,' cal');
+h+=['Breakfast + snack','Lunch + snack','Dinner + snack'].map((l,i)=>tr(l,d[7],on?B[i][1]:undefined,' cal')).join('')+'</div>'});
+h+='<div class="mu" style="margin:0 2px 10px">Set Starts / Ends to schedule a phase. Turn on starts it today. With no schedule, the phase follows the month (Apr-May Cut, Jun-Sep Maintain, Oct-Mar Performance). The On phase shows OVER / UNDER / IN RANGE for the day last open in Vitals ('+vAt.getDate()+' '+MN[vAt.getMonth()]+').</div>';
+return h};
+const bindDiet=v=>{
+v.oninput=e=>{const t=e.target;if(t.dataset&&(t.dataset.dsf||t.dataset.dst)){const m=t.dataset.dsf||t.dataset.dst;vitals.sched=vitals.sched||{};const r=vitals.sched[m]=vitals.sched[m]||{};r[t.dataset.dsf?'from':'to']=t.value;persistV();const db=v.querySelector('#dietbox');if(db&&!t.matches(':focus'))db.innerHTML=dietHtml();return}if(t.dataset&&t.dataset.bs){vitals.body=vitals.body||{};vitals.body[t.dataset.bs]=t.value;persistV()}};
+v.onclick=e=>{const t=e.target.closest&&e.target.closest('[data-dmsel]');if(!t)return;const m=t.dataset.dmsel,td=iso(vAt),y=iso(addDays(vAt,-1));vitals.sched=vitals.sched||{};Object.keys(vitals.sched).forEach(o=>{const r=vitals.sched[o];if(o!==m&&r.from&&r.from<=td&&(!r.to||r.to>=td))r.to=y});vitals.sched[m]={from:td,to:''};persistV();const db=v.querySelector('#dietbox');if(db)db.innerHTML=dietHtml()};
+};
+const dietLine=()=>{const cur=dietCur(),d=DIET.find(x=>x[0]===cur),{T}=dietToday();if(!T.kcal)return'';const n={cut:'Cut',maintain:'Maintain',perf:'Performance'}[cur];const f=(l,v,r,u)=>l+' '+(stat(v,r,u)||'IN RANGE');return '<b>'+n+'</b> &middot; '+f('Cal',T.kcal,d[3],'')+' &middot; '+f('P',T.p,d[4],'g')+' &middot; '+f('C',T.c,d[5],'g')+' &middot; '+f('F',T.f,d[6],'g')};
 const vitalsHtml=()=>{
 const vd=vDay(dk(vAt)),slots=vSlots(vd),w=parseTm(vd.wake),na='<span>Set awakening</span>';
 const vt=vAt.getDate()+' '+MN[vAt.getMonth()]+' '+vAt.getFullYear(),cv='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">';
@@ -202,6 +231,7 @@ s+='<div class="mn"><button class="ic" data-vnav="-1" aria-label="Previous day">
 s+='<div class="card vcard"><div class="vt"><div>Awakening</div><div class="vw-in"><input id="vw" type="time" value="'+esc(vd.wake||'')+'" aria-label="Awakening time"></div></div></div>';
 s+='<div class="card vcard">'+trow('Autophagy Window',w===null?na:fmtTm(w)+' &middot; '+fmtTm(w+480))+trow('Gym Peak Window',w===null?na:fmtTm(w+120)+' &middot; '+fmtTm(w+240))+'</div>';
 s+='<div class="card vcard">'+slots.map(([id,label,off])=>'<div class="vt"><div>'+label+'</div><div class="vt-r"><span class="mu">'+(w===null?'--':fmtTm(w+off*60))+'</span><button class="ck'+(vd.done.includes(id)?' on':'')+'" data-vck="'+id+'" aria-label="Done">'+CK+'</button></div></div><div class="vf"><input type="text" data-vf="'+id+'" value="'+esc(((vd.food||{})[id])||'')+'" aria-label="What you ate"><div class="macros" data-vm="'+id+'">'+macroLine((vd.food||{})[id]||'')+'</div></div>').join('')+'</div>';
+s+='<div class="macros" id="dline" style="color:var(--mu);font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;margin:0 2px 12px;min-height:14px">'+dietLine()+'</div>';
 s+='<div class="row add-cadence" style="margin:0 0 8px"><button class="chip sm" data-vadd="snack">+ Add snack</button></div>';
 s+='<div class="row add-cadence" style="margin:0 0 8px"><button class="chip sm" data-vadd="meal">+ Add meal</button></div>';
 return s};
@@ -288,8 +318,8 @@ function drawSettings(){const th=theme(),v=$('#view');
 let acct;
 if(user){acct=`<div class="card p"><div>${esc(user.email)}</div><div class="mu" style="margin-top:4px">${user.emailVerified?'Email verified. Synced across your devices.':'Email not verified yet. Check your inbox. Synced across your devices.'}</div>${user.emailVerified?'':'<button class="lnk" id="resend">Resend verification email</button><br>'}<button class="lnk" id="out">Sign out</button></div>`}
 else{acct=`<div class="card p"><div class="mu" style="margin-bottom:4px">Signed out. Your list is saved on this device only.</div><label class="f">Email</label><input id="em" type="email" autocomplete="email" autocapitalize="off" spellcheck="false"><label class="f">Password</label><input id="pw" type="password" autocomplete="current-password"><div class="row" style="margin-top:10px"><button class="btn go" data-a="in" style="margin-top:0">Sign in</button><button class="btn sec go" data-a="up" style="margin-top:0">Create account</button></div><div class="row" style="margin-top:10px"><button class="btn sec go" data-a="reset" style="margin-top:0">Forgot password</button></div></div>`}
-v.innerHTML=`<div class="twrap">${wmSvg('settings')}<h1>Settings</h1></div><h2>Theme</h2><div class="row">${['night','day','auto'].map(k=>`<button class="chip ${th===k?'on':''}" data-th="${k}">${k[0].toUpperCase()+k.slice(1)}</button>`).join('')}</div><h2>Account</h2>${acct}<div class="msg" id="msg">${esc(msg)}</div><h2>Backup</h2><div class="card p"><div class="mu">Export your list as a file, or load one back in.</div><div class="row" style="margin-top:10px"><button class="btn sec" id="exp" style="flex:1;margin-top:0">Export</button><button class="btn sec" id="imp" style="flex:1;margin-top:0">Import</button></div><input type="file" id="file" accept="application/json" hidden></div>`;
-v.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{localStorage.setItem('jarvis.theme',b.dataset.th);applyTheme();draw()});
+v.innerHTML=`<div class="twrap">${wmSvg('settings')}<h1>Settings</h1></div><h2>Theme</h2><div class="row">${['night','day','auto'].map(k=>`<button class="chip ${th===k?'on':''}" data-th="${k}">${k[0].toUpperCase()+k.slice(1)}</button>`).join('')}</div><h2>Account</h2>${acct}<div class="msg" id="msg">${esc(msg)}</div><h2>Backup</h2><div class="card p"><div class="mu">Export your list as a file, or load one back in.</div><div class="row" style="margin-top:10px"><button class="btn sec" id="exp" style="flex:1;margin-top:0">Export</button><button class="btn sec" id="imp" style="flex:1;margin-top:0">Import</button></div><input type="file" id="file" accept="application/json" hidden></div><div id="dietbox">${dietHtml()}</div>`;
+bindDiet(v);v.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{localStorage.setItem('jarvis.theme',b.dataset.th);applyTheme();draw()});
 v.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{mode=b.dataset.m;msg='';draw()});
 v.querySelectorAll('.go').forEach(go=>go.onclick=async()=>{const a=go.dataset.a,em=$('#em').value.trim(),pw=$('#pw')?$('#pw').value:'';msg='';
 try{if(a==='reset'){await sendPasswordResetEmail(auth,em);msg='Reset link sent if that email has an account.'}
