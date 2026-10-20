@@ -2,7 +2,7 @@
 // builds each statement with the app's own code (headless Chrome), sends summary + PDF.
 import fs from 'fs';import crypto from 'crypto';import path from 'path';import {fileURLToPath} from 'url';
 import puppeteer from 'puppeteer-core';
-const HERE=path.dirname(fileURLToPath(import.meta.url)),APP=path.join(HERE,'..','index.html');
+const HERE=path.dirname(fileURLToPath(import.meta.url)),APP=path.join(HERE,'..','index.html'),FONTSCSS=fs.readFileSync(path.join(HERE,'..','fonts.css'),'utf8');
 const DRY=process.argv.includes('--dry'),SAMPLE=(process.argv.find(a=>a.startsWith('--sample='))||'').slice(9);
 const SALT=process.env.MAIL_CODE_SALT||'dev-salt',SEND_HOUR=7;
 const pad=n=>String(n).padStart(2,'0'),ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
@@ -18,7 +18,7 @@ export function periods(now){const t=new Date(now.getFullYear(),now.getMonth(),n
 const NAME={w:'Weekly',b:'Bi-weekly',m:'Monthly',y:'Yearly'};
 const hash=c=>crypto.createHash('sha256').update(String(c)+SALT).digest('hex');
 async function render(page,data,opt){return page.evaluate((d,o)=>window.__jarvisReport(d,o),data,opt)}
-function mailHtml(r,label,acct){return `<div style="font-family:-apple-system,Helvetica,Arial,sans-serif;max-width:680px;margin:0 auto;color:#111"><h1 style="font-size:20px;margin:0 0 4px">Jarvis ${label} statement</h1><div style="color:#666;font-size:13px;margin-bottom:12px">${r.from} to ${r.to}. The PDF is attached.</div>${r.html.replace(/var\(--mu\)/g,'#666').replace(/var\(--line\)/g,'#ddd').replace(/<svg[\s\S]*?<\/svg>/g,'0%').replace(/class="mu"/g,'style="color:#666;font-size:12px"').replace(/class="card p"/g,'style="border:1px solid #ddd;border-radius:8px;padding:10px"')}<div style="color:#888;font-size:11px;margin-top:18px">Sent because ${acct} turned on Auto emails in Jarvis Settings. To stop, open Settings > Auto emails and turn it Off.</div></div>`}
+function mailHtml(r,label,acct){return `<style>@font-face{font-family:DINish;font-weight:400;src:url(https://charles-cobalt.github.io/jarvis/dinish-400.ttf) format('truetype')}@font-face{font-family:DINish;font-weight:600;src:url(https://charles-cobalt.github.io/jarvis/dinish-600.ttf) format('truetype')}@font-face{font-family:DINish;font-weight:700;src:url(https://charles-cobalt.github.io/jarvis/dinish-700.ttf) format('truetype')}</style><div style="font-family:DINish,-apple-system,Helvetica,Arial,sans-serif;max-width:680px;margin:0 auto;color:#111"><h1 style="font-size:20px;margin:0 0 4px">Jarvis ${label} statement</h1><div style="color:#666;font-size:13px;margin-bottom:12px">${r.from} to ${r.to}. The PDF is attached.</div>${r.html.replace(/var\(--mu\)/g,'#666').replace(/var\(--line\)/g,'#ddd').replace(/<svg[\s\S]*?<\/svg>/g,'0%').replace(/class="mu"/g,'style="color:#666;font-size:12px"').replace(/class="card p"/g,'style="border:1px solid #ddd;border-radius:8px;padding:10px"')}<div style="color:#888;font-size:11px;margin-top:18px">Sent because ${acct} turned on Auto emails in Jarvis Settings. To stop, open Settings > Auto emails and turn it Off.</div></div>`}
 async function send(cfg,to,subject,html,text,att){
  if(DRY){fs.writeFileSync('/tmp/work/dump-'+Date.now()+'.html',html);if(att&&att[0])fs.writeFileSync('/tmp/work/dump.pdf',Buffer.from(att[0].b64,'base64'));console.log('DRY send',to,subject,html.length,'bytes html',att?att.length:0,'att');return}
  const prov=process.env.MAIL_PROVIDER||'brevo';
@@ -52,10 +52,14 @@ async function main(){
    for(const [c,[a,b],pre] of jobs){
     const page=await browser.newPage();if(m.tz)await page.emulateTimezone(m.tz).catch(()=>{});
     await page.goto('file://'+APP,{waitUntil:'domcontentloaded'});await page.waitForFunction('window.__jarvisReport',{timeout:20000});
-    const r=await render(page,{items:JSON.parse(JSON.stringify(d.items||[])),vitals:vit},{per:'custom',from:ymd(a),to:ymd(b),cats:m.cats,met:m.met});await page.close();
-    if(r.err){ns.err=NAME[c]+': '+r.err;continue}
+    const r=await render(page,{items:JSON.parse(JSON.stringify(d.items||[])),vitals:vit},{per:'custom',from:ymd(a),to:ymd(b),cats:m.cats,met:m.met});
+    if(r.err){ns.err=NAME[c]+': '+r.err;await page.close();continue}
+    await page.setContent('<!doctype html><html><head><meta charset="utf-8"><style>'+FONTSCSS+'</style><style>h2{font:600 13px DINish,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#444;margin:18px 0 6px}</style></head><body style="font-family:DINish,Helvetica,Arial,sans-serif;margin:0;color:#111">'+r.html.replace(/var\(--mu\)/g,'#666').replace(/var\(--line\)/g,'#ddd')+'</body></html>',{waitUntil:'load'});
+    await page.evaluateHandle('document.fonts.ready');
+    const pdfB64=Buffer.from(await page.pdf({format:'Letter',printBackground:true,margin:{top:'40px',bottom:'40px',left:'40px',right:'40px'}})).toString('base64');
+    await page.close();
     const label=pre+NAME[c].toLowerCase();
-    await send(null,to,`Jarvis ${label} statement, ${r.from} to ${r.to}`,mailHtml(r,label,acct),r.txt,[{name:`jarvis-statement_${r.from}_to_${r.to}.pdf`,b64:r.pdf}]);
+    await send(null,to,`Jarvis ${label} statement, ${r.from} to ${r.to}`,mailHtml(r,label,acct),r.txt,[{name:`jarvis-statement_${r.from}_to_${r.to}.pdf`,b64:pdfB64}]);
     if(pre)ns.testDone=Date.now();else sent[c]=ymd(b);ns.last=new Date().toISOString().slice(0,10)+' ('+label+')';delete ns.err}
    ns.sent=sent}
   if(JSON.stringify(ns)!==JSON.stringify(st)&&!DRY&&d.ref)await d.ref.set({mailState:JSON.stringify(ns)},{merge:true});

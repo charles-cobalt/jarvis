@@ -23,12 +23,12 @@ h2{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;
 ul{list-style:none;margin:0;padding:0}
 li.card{display:flex;align-items:center;gap:12px;min-height:52px;animation:fi .5s ease both}
 @keyframes fi{from{opacity:0}to{opacity:1}}
-.ck{width:20px;height:28px;flex:none;display:flex;align-items:center;justify-content:center}
+.ck{width:30px;height:44px;flex:none;display:flex;align-items:center;justify-content:center}.ck.part{flex-direction:column;gap:2px}.ck.part:before{display:none}.ck .bx{position:relative;display:block;width:18px;height:18px;border:1px solid #5a5a5a}.ck .pf{position:absolute;left:0;right:0;bottom:0;display:block;background:linear-gradient(180deg,#e2e2e2,#cfcfcf);opacity:.55}.ck .pn{font-size:8px;line-height:1;color:var(--mu);font-weight:600;letter-spacing:.04em}
 .ck:before{content:"";width:18px;height:18px;border:1px solid #5a5a5a;display:block}
 .ck svg{display:none;width:12px;height:auto}
 li.done .ck:before{display:none}li.done .ck svg{display:block;animation:pop .35s ease}
 @keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
-li .t{flex:1;min-width:30%;overflow-wrap:anywhere;line-height:1.5}li.done .t{color:var(--mu)}
+li .t{flex:1;min-width:24%;overflow-wrap:anywhere;line-height:1.5}li.done .t{color:var(--mu)}
 li .t input{width:100%}
 .ic{width:34px;height:44px;flex:none;color:#6a6a6a;display:flex;align-items:center;justify-content:center}.ic:active{color:#f2f2f2}.ic svg{width:18px;height:18px}.grip{touch-action:none;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}li.drag{position:relative;z-index:5;border-color:#8c8c8c;opacity:.92}
 .add{display:flex;align-items:center;gap:6px;margin-top:12px}.add input{height:44px}
@@ -91,6 +91,7 @@ items=items.filter(x=>x&&x.name).map(norm);
 let idn=0;items.forEach(it=>{if(!it.id)it.id='i'+(idn++)+'_'+Math.random().toString(36).slice(2,8)});if(idn)localStorage.setItem(K,JSON.stringify(items));
 let user=null,page='today',editing=-1,unsub=null,msg='',mode='in',fromCloud=false,addKind='habit',addCad='daily',addDraft='',addTS=false,addDate='',addTime='';
 let addSlots=[],addParent=null,addLinkOn=false,linkOpen=-1;
+let phPick=null;
 const KINDS=[['task','Task'],['short','Short term'],['long','Long term'],['habit','Habit']],KINDL={task:'Task',short:'Short term',long:'Long term'},CAD={daily:'Daily',weekly:'Weekly',monthly:'Monthly',yearly:'Yearly'};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 /*SYNC74-START*/
@@ -201,7 +202,7 @@ v.querySelectorAll('[data-vnav]').forEach(b=>b.onclick=()=>{vAt=addDays(vAt,+b.g
 const lists={habit:$('#lh'),task:$('#lt'),short:$('#ls'),long:$('#lg')};
 if(!items.length&&lists.habit)lists.habit.innerHTML='<div class="empty">Nothing yet. Add what you want to track.</div>';
 items.forEach((it,i)=>{const done=it.kind==='habit'?habDone(it):!!it.done;const li=document.createElement('li');li.className='card'+(done?' done':'');
-li.innerHTML='<button class="ck" aria-label="Done">'+CK+'</button><div class="t"></div>'+(it.kind==='habit'?'<div class="tag">'+habTag(it)+'</div>':ogTagFull(it))+'<button class="ic" aria-label="Edit">'+PEN+'</button><button class="ic" aria-label="Remove">'+X+'</button><button class="ic grip" type="button" aria-label="Drag to reorder">'+GRIP+'</button>';
+let ckH='<button class="ck" aria-label="Done">'+CK+'</button>';if(it.kind==='habit'&&(it.cadence||'daily')==='daily'&&it.slots&&it.slots.length){const dn=it.slots.filter(H=>(it.slotsDone||[]).includes(t+'@'+H)).length;if(dn>0&&dn<it.slots.length)ckH='<button class="ck part" aria-label="Done"><span class="bx"><i class="pf" style="height:'+Math.round(100*dn/it.slots.length)+'%"></i></span><span class="pn">'+dn+'/'+it.slots.length+'</span>'+CK+'</button>'}li.innerHTML=ckH+'<div class="t"></div>'+(it.kind==='habit'?'<div class="tag">'+habTag(it)+'</div>':ogTagFull(it))+'<button class="ic" aria-label="Edit">'+PEN+'</button><button class="ic" aria-label="Remove">'+X+'</button><button class="ic grip" type="button" aria-label="Drag to reorder">'+GRIP+'</button>';
 const tt=li.querySelector('.t');
 if(editing===i){li.style.paddingTop=(it.kind==='habit'||it.ts?'12px':'8px');const inp=document.createElement('input');inp.maxLength=80;inp.value=it.name;tt.appendChild(inp);let fin=false;const done2=()=>{if(fin)return;fin=true;it.name=inp.value.trim()||it.name;editing=-1;persist();draw()};inp.onkeydown=e=>{if(e.key==='Enter')done2()};inp.onblur=()=>{setTimeout(()=>{if(li.isConnected&&li.contains(document.activeElement))return;done2()},60)};setTimeout(()=>inp.focus(),0);
 if(it.kind==='habit'){li.style.flexWrap='wrap';const w=document.createElement('div');w.className='row add-cadence';w.style.cssText='flex-basis:100%;margin:0 0 12px';w.innerHTML=Object.keys(CAD).map(k=>'<button class="chip'+((it.cadence||'daily')===k?' on':'')+'" data-cad="'+k+'">'+CAD[k]+'</button>').join('');li.appendChild(w);w.querySelectorAll('[data-cad]').forEach(b=>b.onmousedown=e=>{e.preventDefault();const nm=li.querySelector('.t input');if(nm){const v2=nm.value.trim();if(v2)it.name=v2}it.cadence=b.dataset.cad;delete it.slots;persist();draw()})
@@ -293,7 +294,7 @@ delete vitals.sched;persistV();
 }
 return vitals.phases};
 const bodyV=k=>{const b=vitals.body||{};return b[k]!==undefined?b[k]:''};
-const dietCur=()=>{const P=phases(),k=iso(vAt);let best=null,bs='';P.forEach(p=>{if(p.from&&p.from<=k&&(!p.to||k<=p.to)&&p.from>=bs){best=p;bs=p.from}});if(best)return best;const on=P.filter(p=>p.on);return on.length?on[on.length-1]:null};
+const dietCur=()=>{const P=phases(),k=iso(vAt);const hold=P.filter(p=>p.on&&!p.onDay);if(hold.length)return hold[hold.length-1];const t1=P.filter(p=>p.on&&p.onDay===k);if(t1.length)return t1[t1.length-1];let best=null,bs='';P.forEach(p=>{if(p.from&&p.from<=k&&(!p.to||k<=p.to)&&p.from>=bs){best=p;bs=p.from}});return best};
 const RGSTYLE='all:unset;text-align:right;color:var(--mu);font-size:13px;width:52px;min-height:0;height:auto;padding:0;border:0;background:none;box-sizing:border-box';
 const dietHtml=()=>{
 const P=phases(),cur=dietCur();
@@ -302,12 +303,14 @@ const rg=(p,k,l,u,arr)=>{const a=arr||p[k];return '<div class="vt"><div>'+l+'</d
 let h='<h2 style="margin:14px 2px 6px">Targets</h2><div class="card vcard">'+BODY.map(x=>bs(x[1],x[0])).join('')+'</div>';
 h+='<h2 style="margin:14px 2px 6px">Diet phases</h2>';
 P.forEach(p=>{const on=cur&&cur.id===p.id;
-h+='<div class="card vcard"><div class="vt"><input data-pnm="'+p.id+'" value="'+esc(p.name)+'" aria-label="Phase name" style="all:unset;flex:1;min-width:0;color:var(--tx);font-size:14px;min-height:0;padding:0;border:0;background:none;box-sizing:border-box"><button class="ic" data-pdel="'+p.id+'" aria-label="Delete phase" style="flex:none">'+X+'</button><button class="chip sm'+(on?' on':'')+'" style="flex:none;width:84px" data-dmsel="'+p.id+'">'+(on?'Active':'Activate')+'</button></div>';
+h+='<div class="card vcard"><div class="vt"><input data-pnm="'+p.id+'" value="'+esc(p.name)+'" aria-label="Phase name" style="all:unset;flex:1;min-width:0;color:var(--tx);font-size:14px;min-height:0;padding:0;border:0;background:none;box-sizing:border-box"><button class="ic" data-pdel="'+p.id+'" aria-label="Delete phase" style="flex:none">'+X+'</button><button class="chip sm'+(on?' on':'')+'" style="flex:none;width:84px" data-dmsel="'+p.id+'">'+(on?(p.onDay?'Active today':'Active'):'Activate')+'</button></div>';
+if(!p.on&&phPick===p.id)h+='<div class="row add-cadence" style="margin:0 0 8px"><button class="chip sm" data-dmod="'+p.id+'|day">Today only</button><button class="chip sm" data-dmod="'+p.id+'|hold">Until I turn it off</button></div>';
+if(p.on)h+='<div class="row add-cadence" style="margin:0 0 8px"><button class="chip sm" data-dmoff="'+p.id+'">Back to schedule</button></div>';
 h+='<div class="vt"><div>Starts</div><div class="vw-in"><input type="date" data-dsf="'+p.id+'" value="'+esc(p.from)+'" aria-label="Start"></div></div><div class="vt"><div>Ends</div><div class="vw-in"><input type="date" data-dst="'+p.id+'" value="'+esc(p.to)+'" aria-label="End"></div></div>';
 h+=rg(p,'cal','Calories','cal')+rg(p,'p','Protein','g')+rg(p,'c','Carbs','g')+rg(p,'f','Fat','g');
 h+=['Breakfast + Snack','Lunch + Snack','Dinner + Snack'].map((l,i)=>rg(p,'m'+i,l,'cal',p.meals[i])).join('')+'</div>'});
 h+='<div class="row add-cadence" style="margin:0 0 8px"><button class="chip sm" data-padd="1">+ Add Phase</button></div>';
-h+='<div class="mu" style="margin:0 2px 10px">Set Starts / Ends to schedule a phase. Activate starts it today. Vitals shows OVER / UNDER / IN RANGE for the active phase.</div>';
+h+='<div class="mu" style="margin:0 2px 10px">Set Starts / Ends to schedule a phase. Activate runs it for today only or until you turn it off; your dates stay saved. Vitals shows OVER / UNDER / IN RANGE for the active phase.</div>';
 return h};
 const bindDiet=v=>{
 const rr=()=>{const db=v.querySelector('#dietbox');if(db)db.innerHTML=dietHtml()};
@@ -316,12 +319,13 @@ if(t.dataset.bs!==undefined){vitals.body=vitals.body||{};vitals.body[t.dataset.b
 if(t.dataset.pnm){const p=phases().find(x=>x.id===t.dataset.pnm);if(p){p.name=t.value;persistV()}return}
 if(t.dataset.rg){const a=t.dataset.rg.split(':'),p=phases().find(x=>x.id===a[0]);if(!p)return;const arr=a[1][0]==='m'?p.meals[+a[1].slice(1)]:p[a[1]];arr[+a[2]]=t.value;persistV();return}
 if(t.dataset.dsf||t.dataset.dst){const id=t.dataset.dsf||t.dataset.dst,p=phases().find(x=>x.id===id);if(!p)return;p[t.dataset.dsf?'from':'to']=t.value;persistV();if(!t.matches(':focus'))rr()}};
-v.onclick=e=>{const t=e.target.closest&&e.target.closest('[data-dmsel],[data-pdel],[data-padd]');if(!t)return;
+v.onclick=e=>{const t=e.target.closest&&e.target.closest('[data-dmsel],[data-dmod],[data-dmoff],[data-pdel],[data-padd]');if(!t)return;
 if(t.dataset.padd!==undefined){const P=phases(),p=newPhase();if(!P.length)p.on=true;P.push(p);persistV();rr();return}
 if(t.dataset.pdel){vitals.phases=phases().filter(x=>x.id!==t.dataset.pdel);persistV();rr();return}
+if(t.dataset.dmoff){const P=phases(),p=P.find(x=>x.id===t.dataset.dmoff);if(!p)return;p.on=false;delete p.onDay;persistV();rr();return}
+if(t.dataset.dmod){const a=t.dataset.dmod.split('|'),P=phases(),p=P.find(x=>x.id===a[0]);if(!p)return;P.forEach(o=>{if(o.id!==p.id){o.on=false;delete o.onDay}});p.on=true;if(a[1]==='day')p.onDay=iso(vAt);else delete p.onDay;phPick=null;persistV();rr();return}
 const P=phases(),p=P.find(x=>x.id===t.dataset.dmsel);if(!p)return;
-if(p.on){p.on=false;p.from='';p.to=''}
-else{const td=iso(vAt),y=iso(addDays(vAt,-1));P.forEach(o=>{if(o.id!==p.id){o.on=false;if(o.from&&o.from<=td&&(!o.to||o.to>=td))o.to=y}});p.on=true;p.from=td;p.to=''}
+if(!p.on)phPick=phPick===p.id?null:p.id;
 persistV();rr()};
 };
 const dietLine=()=>{const p=dietCur();if(!p)return'';const{T}=dietToday();if(!T.kcal)return'';
