@@ -107,7 +107,7 @@ const habPct=()=>{if(!Ha.length)return null;return Math.round(100*Ha.filter(habD
 const bridgeRow=()=>addLinkOn?'<div class="lgrid" style="margin-bottom:8px">'+Ga.map(g=>'<button class="chip sm'+(addParent===g.id?' on':'')+'" data-abr="'+g.id+'">'+esc(g.name)+'</button>').join('')+'</div>':'';
 const longP=()=>{if(!Ga.length)return null;return Math.round(100*Ga.reduce((a,g)=>a+(g.done?1:(bridgePct(g)||0)),0)/Ga.length)};
 const prgRings=()=>ringFor(habPct(),'Habits')+ringFor(catPct(Ta),'Tasks')+ringFor(catPct(Sa),'Short term')+ringFor(longP(),'Long term');
-let h='<div class="twrap">'+wmSvg('today')+'<h1>The Process</h1></div><h2>Progress</h2><div class="card dg" style="grid-template-columns:repeat(4,1fr)">'+prgRings()+'</div>';
+let h='<div class="twrap">'+wmSvg('today')+'<h1>The Process</h1></div><h2>One day at a time, one step at a time</h2><div class="card dg" style="grid-template-columns:repeat(4,1fr)">'+prgRings()+'</div>';
 if(Ha.length||!items.length)h+='<h2>Habits</h2><ul id="lh"></ul>';
 if(Ta.length)h+='<h2>Tasks</h2><ul id="lt"></ul>';
 if(Sa.length)h+='<h2>Short term</h2><ul id="ls"></ul>';
