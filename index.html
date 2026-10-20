@@ -193,35 +193,64 @@ if(r.unknown.length===r.n)return '? '+esc(r.unknown.join(', '));
 let s='<b>'+Math.round(r.kcal)+' cal</b> &middot; C '+Math.round(r.c)+'g &middot; P '+Math.round(r.p)+'g &middot; F '+Math.round(r.f)+'g';
 if(r.unknown.length)s+=' &middot; ? '+esc(r.unknown.join(', '));
 return s};
-const DIET=[['cut','Cut Phase','Apr - May',[2250,2350],[170,175],[170,210],[65,70],[750,780]],['maintain','Maintain Phase','Jun - Sep',[2450,2550],[170,175],[180,230],[70,80],[820,850]],['perf','Performance Phase','Oct - Mar',[2700,2800],[170,175],[240,290],[80,90],[900,930]]];
-const dietAuto=()=>{const m=vAt.getMonth()+1;return m>=4&&m<=5?'cut':m>=6&&m<=9?'maintain':'perf'};
-const dietSch=()=>vitals.sched||{};
-const dietCur=()=>{const k=dk(vAt),pk=x=>{const a=x.split('-');return +a[0]*10000+(+a[1])*100+(+a[2])},n=pk(k);let best=null,bs='';const S=dietSch();Object.keys(S).forEach(m=>{const r=S[m]||{};if(!r.from)return;if(r.from<=iso(vAt)&&(!r.to||iso(vAt)<=r.to)&&r.from>=bs){best=m;bs=r.from}});return best||dietAuto()};
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-const rgS=(r,u)=>r[0]+' - '+r[1]+(u||'');
-const dietToday=()=>{const vd=vDay(dk(vAt)),fd=vd.food||{},T={kcal:0,p:0,c:0,f:0};Object.keys(fd).forEach(id=>{const r=parseLine(fd[id]||'');T.kcal+=r.kcal;T.p+=r.p;T.c+=r.c;T.f+=r.f});const B=[['Breakfast + snack','meal1','snack1'],['Lunch + snack','meal2','snack2'],['Dinner + snack','meal3','snack3']].map(([l,a,b])=>[l,parseLine(fd[a]||'').kcal+parseLine(fd[b]||'').kcal]);return{T,B}};
-const BODY=[['age','Age','35'],['wr','Healthy weight range for build','168 - 178 lbs'],['ht','Height','5\'10"'],['bf','Target body fat','11%'],['wa','Target waist','32"'],['tw','Target weight','165 - 170 lbs'],['tr','Training','4 days/week ~ 1 hour per session']];
-const bodyV=k=>{const b=vitals.body||{};return b[k]!==undefined?b[k]:BODY.find(x=>x[0]===k)[2]};
+const num=v=>{const n=parseFloat(v);return isFinite(n)?n:null};
+const vrg=r=>{if(!Array.isArray(r))return null;const a=num(r[0]),b=num(r[1]);return a===null||b===null?null:[a,b]};
 const stat=(v,r,u)=>{v=Math.round(v);if(!v)return'';if(v<r[0])return'UNDER '+(r[0]-v)+u;if(v>r[1])return'OVER '+(v-r[1])+u;return'IN RANGE'};
+const dietToday=()=>{const vd=vDay(dk(vAt)),fd=vd.food||{},T={kcal:0,p:0,c:0,f:0};Object.keys(fd).forEach(id=>{const r=parseLine(fd[id]||'');T.kcal+=r.kcal;T.p+=r.p;T.c+=r.c;T.f+=r.f});const B=[['Breakfast + snack','meal1','snack1'],['Lunch + snack','meal2','snack2'],['Dinner + snack','meal3','snack3']].map(([l,a,b])=>[l,parseLine(fd[a]||'').kcal+parseLine(fd[b]||'').kcal]);return{T,B}};
+const BODY=[['age','Age'],['wr','Healthy weight range for build'],['ht','Height'],['bf','Target body fat'],['wa','Target waist'],['tw','Target weight'],['tr','Training']];
+const SEEDBODY={age:'35',wr:'168 - 178 lbs',ht:'5\'10"',bf:'11%',wa:'32"',tw:'165 - 170 lbs',tr:'4 days/week ~ 1 hour per session'};
+const SEEDPHASES=[['cut','Cut',[2250,2350],[170,175],[170,210],[65,70],[750,780]],['maintain','Maintain',[2450,2550],[170,175],[180,230],[70,80],[820,850]],['perf','Performance',[2700,2800],[170,175],[240,290],[80,90],[900,930]]];
+const newPhase=(id,name)=>({id:id||'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),name:name||'',on:false,from:'',to:'',cal:['',''],p:['',''],c:['',''],f:['',''],meals:[['',''],['',''],['','']]});
+const phases=()=>{
+if(!Array.isArray(vitals.phases)){
+const hasData=vitals.sched||vitals.body||Object.keys(vitals.days||{}).some(k=>{const d=vitals.days[k]||{};return d.wake||(d.done&&d.done.length)||(d.food&&Object.keys(d.food).length)||(d.extra&&d.extra.length)});
+if(hasData){
+const S=vitals.sched||{};
+vitals.phases=SEEDPHASES.map(d=>{const p=newPhase(d[0],d[1]);p.cal=d[2].slice();p.p=d[3].slice();p.c=d[4].slice();p.f=d[5].slice();p.meals=[d[6].slice(),d[6].slice(),d[6].slice()];const sc=S[d[0]]||{};p.from=sc.from||'';p.to=sc.to||'';return p});
+const m=vAt.getMonth()+1,cur=m>=4&&m<=5?'cut':m>=6&&m<=9?'maintain':'perf';
+const onP=vitals.phases.find(p=>p.id===cur);if(onP)onP.on=true;
+if(!vitals.body)vitals.body=Object.assign({},SEEDBODY);
+}else{vitals.phases=[];if(!vitals.body)vitals.body={}}
+delete vitals.sched;persistV();
+}
+return vitals.phases};
+const bodyV=k=>{const b=vitals.body||{};return b[k]!==undefined?b[k]:''};
+const dietCur=()=>{const P=phases(),k=iso(vAt);let best=null,bs='';P.forEach(p=>{if(p.from&&p.from<=k&&(!p.to||k<=p.to)&&p.from>=bs){best=p;bs=p.from}});if(best)return best;const on=P.filter(p=>p.on);return on.length?on[on.length-1]:null};
+const RGSTYLE='all:unset;text-align:right;color:var(--mu);font-size:13px;width:52px;min-height:0;height:auto;padding:0;border:0;background:none;box-sizing:border-box';
 const dietHtml=()=>{
-const cur=dietCur(),{T,B}=dietToday(),S=dietSch();
-const tr=(l,r,v,u)=>'<div class="vt"><div>'+l+'</div><div class="mu">'+(v!==undefined?'<b style="color:var(--tx)">'+Math.round(v)+'</b> / ':'')+rgS(r,u)+(v!==undefined&&stat(v,r,u)?' &middot; <b style="color:var(--tx)">'+stat(v,r,u)+'</b>':'')+'</div></div>';
+const P=phases(),cur=dietCur();
 const bs=(l,k)=>'<div class="vt"><div>'+l+'</div><input class="bsi" data-bs="'+k+'" value="'+esc(bodyV(k))+'" aria-label="'+l+'" style="all:unset;text-align:right;color:var(--mu);font-size:13px;width:55%;min-height:0;height:auto;padding:0;border:0;background:none;box-sizing:border-box"></div>';
+const rg=(p,k,l,u,arr)=>{const a=arr||p[k];return '<div class="vt"><div>'+l+'</div><div class="mu" style="display:flex;align-items:center;gap:6px;justify-content:flex-end;flex:none"><input data-rg="'+p.id+':'+k+':0" value="'+esc(a[0])+'" inputmode="numeric" aria-label="'+l+' low" style="'+RGSTYLE+'"><span>-</span><input data-rg="'+p.id+':'+k+':1" value="'+esc(a[1])+'" inputmode="numeric" aria-label="'+l+' high" style="'+RGSTYLE+'">'+(u?' <span>'+u+'</span>':'')+'</div></div>'};
 let h='<h2 style="margin:14px 2px 6px">Targets</h2><div class="card vcard">'+BODY.map(x=>bs(x[1],x[0])).join('')+'</div>';
 h+='<h2 style="margin:14px 2px 6px">Diet phases</h2>';
-DIET.forEach(d=>{const on=d[0]===cur,sc=S[d[0]]||{};
-h+='<div class="card vcard" style="'+(on?'border-color:#e6e6e6':'opacity:.72')+'"><div class="vt"><div>'+d[1]+' &middot; '+rgS(d[3],' cal')+'</div><button class="chip sm'+(on?' on':'')+'" style="flex:none;width:84px" data-dmsel="'+d[0]+'">'+(on?'On':'Turn on')+'</button></div>';
-h+='<div class="vt"><div>Starts</div><div class="vw-in"><input type="date" data-dsf="'+d[0]+'" value="'+esc(sc.from||'')+'" aria-label="Start"></div></div><div class="vt"><div>Ends</div><div class="vw-in"><input type="date" data-dst="'+d[0]+'" value="'+esc(sc.to||'')+'" aria-label="End"></div></div>';
-h+=tr('Protein',d[4],on?T.p:undefined,'g')+tr('Carbs',d[5],on?T.c:undefined,'g')+tr('Fat',d[6],on?T.f:undefined,'g');
-if(on)h+=tr('Calories',d[3],T.kcal,' cal');
-h+=['Breakfast + snack','Lunch + snack','Dinner + snack'].map((l,i)=>tr(l,d[7],on?B[i][1]:undefined,' cal')).join('')+'</div>'});
-h+='<div class="mu" style="margin:0 2px 10px">Set Starts / Ends to schedule a phase. Turn on starts it today. With no schedule, the phase follows the month (Apr-May Cut, Jun-Sep Maintain, Oct-Mar Performance). The On phase shows OVER / UNDER / IN RANGE for the day last open in Vitals ('+vAt.getDate()+' '+MN[vAt.getMonth()]+').</div>';
+P.forEach(p=>{const on=cur&&cur.id===p.id;
+h+='<div class="card vcard"><div class="vt"><input data-pnm="'+p.id+'" value="'+esc(p.name)+'" aria-label="Phase name" style="all:unset;flex:1;min-width:0;color:var(--tx);font-size:14px;min-height:0;padding:0;border:0;background:none;box-sizing:border-box"><button class="ic" data-pdel="'+p.id+'" aria-label="Delete phase" style="flex:none">'+X+'</button><button class="chip sm'+(on?' on':'')+'" style="flex:none;width:84px" data-dmsel="'+p.id+'">'+(on?'Active':'Activate')+'</button></div>';
+h+='<div class="vt"><div>Starts</div><div class="vw-in"><input type="date" data-dsf="'+p.id+'" value="'+esc(p.from)+'" aria-label="Start"></div></div><div class="vt"><div>Ends</div><div class="vw-in"><input type="date" data-dst="'+p.id+'" value="'+esc(p.to)+'" aria-label="End"></div></div>';
+h+=rg(p,'cal','Calories','cal')+rg(p,'p','Protein','g')+rg(p,'c','Carbs','g')+rg(p,'f','Fat','g');
+h+=['Breakfast + snack','Lunch + snack','Dinner + snack'].map((l,i)=>rg(p,'m'+i,l,'cal',p.meals[i])).join('')+'</div>'});
+h+='<div class="row add-cadence" style="margin:0 0 8px"><button class="chip sm" data-padd="1">+ Add phase</button></div>';
+h+='<div class="mu" style="margin:0 2px 10px">Set Starts / Ends to schedule a phase. Activate starts it today. Vitals shows OVER / UNDER / IN RANGE for the active phase.</div>';
 return h};
 const bindDiet=v=>{
-v.oninput=e=>{const t=e.target;if(t.dataset&&(t.dataset.dsf||t.dataset.dst)){const m=t.dataset.dsf||t.dataset.dst;vitals.sched=vitals.sched||{};const r=vitals.sched[m]=vitals.sched[m]||{};r[t.dataset.dsf?'from':'to']=t.value;persistV();const db=v.querySelector('#dietbox');if(db&&!t.matches(':focus'))db.innerHTML=dietHtml();return}if(t.dataset&&t.dataset.bs){vitals.body=vitals.body||{};vitals.body[t.dataset.bs]=t.value;persistV()}};
-v.onclick=e=>{const t=e.target.closest&&e.target.closest('[data-dmsel]');if(!t)return;const m=t.dataset.dmsel,td=iso(vAt),y=iso(addDays(vAt,-1));vitals.sched=vitals.sched||{};Object.keys(vitals.sched).forEach(o=>{const r=vitals.sched[o];if(o!==m&&r.from&&r.from<=td&&(!r.to||r.to>=td))r.to=y});vitals.sched[m]={from:td,to:''};persistV();const db=v.querySelector('#dietbox');if(db)db.innerHTML=dietHtml()};
+const rr=()=>{const db=v.querySelector('#dietbox');if(db)db.innerHTML=dietHtml()};
+v.oninput=e=>{const t=e.target;if(!t.dataset)return;
+if(t.dataset.bs!==undefined){vitals.body=vitals.body||{};vitals.body[t.dataset.bs]=t.value;persistV();return}
+if(t.dataset.pnm){const p=phases().find(x=>x.id===t.dataset.pnm);if(p){p.name=t.value;persistV()}return}
+if(t.dataset.rg){const a=t.dataset.rg.split(':'),p=phases().find(x=>x.id===a[0]);if(!p)return;const arr=a[1][0]==='m'?p.meals[+a[1].slice(1)]:p[a[1]];arr[+a[2]]=t.value;persistV();return}
+if(t.dataset.dsf||t.dataset.dst){const id=t.dataset.dsf||t.dataset.dst,p=phases().find(x=>x.id===id);if(!p)return;p[t.dataset.dsf?'from':'to']=t.value;persistV();if(!t.matches(':focus'))rr()}};
+v.onclick=e=>{const t=e.target.closest&&e.target.closest('[data-dmsel],[data-pdel],[data-padd]');if(!t)return;
+if(t.dataset.padd!==undefined){const P=phases(),p=newPhase();if(!P.length)p.on=true;P.push(p);persistV();rr();return}
+if(t.dataset.pdel){vitals.phases=phases().filter(x=>x.id!==t.dataset.pdel);persistV();rr();return}
+const P=phases(),p=P.find(x=>x.id===t.dataset.dmsel);if(!p)return;
+if(p.on){p.on=false;p.from='';p.to=''}
+else{const td=iso(vAt),y=iso(addDays(vAt,-1));P.forEach(o=>{if(o.id!==p.id){o.on=false;if(o.from&&o.from<=td&&(!o.to||o.to>=td))o.to=y}});p.on=true;p.from=td;p.to=''}
+persistV();rr()};
 };
-const dietLine=()=>{const cur=dietCur(),d=DIET.find(x=>x[0]===cur),{T}=dietToday();if(!T.kcal)return'';const n={cut:'Cut',maintain:'Maintain',perf:'Performance'}[cur];const f=(l,v,r,u)=>l+' '+(stat(v,r,u)||'IN RANGE');return '<b>'+n+'</b> &middot; '+f('Cal',T.kcal,d[3],'')+' &middot; '+f('P',T.p,d[4],'g')+' &middot; '+f('C',T.c,d[5],'g')+' &middot; '+f('F',T.f,d[6],'g')};
+const dietLine=()=>{const p=dietCur();if(!p)return'';const{T}=dietToday();if(!T.kcal)return'';
+const seg=(l,v,r,u)=>{const rr=vrg(r);return rr?l+' '+(stat(v,rr,u)||'IN RANGE'):''};
+const parts=[seg('Cal',T.kcal,p.cal,''),seg('P',T.p,p.p,'g'),seg('C',T.c,p.c,'g'),seg('F',T.f,p.f,'g')].filter(x=>x);
+return '<b>'+esc(p.name||'Phase')+'</b>'+(parts.length?' &middot; '+parts.join(' &middot; '):'')};
 const vitalsHtml=()=>{
 const vd=vDay(dk(vAt)),slots=vSlots(vd),w=parseTm(vd.wake),na='<span>Set awakening</span>';
 const vt=vAt.getDate()+' '+MN[vAt.getMonth()]+' '+vAt.getFullYear(),cv='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">';
