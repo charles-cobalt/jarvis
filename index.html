@@ -251,7 +251,7 @@ persistV();rr()};
 const dietLine=()=>{const p=dietCur();if(!p)return'';const{T}=dietToday();if(!T.kcal)return'';
 const seg=(l,v,r,u)=>{const rr=vrg(r);return rr?l+' '+(stat(v,rr,u)||'IN RANGE'):''};
 const parts=[seg('Cal',T.kcal,p.cal,''),seg('P',T.p,p.p,'g'),seg('C',T.c,p.c,'g'),seg('F',T.f,p.f,'g')].filter(x=>x);
-return '<b>'+esc(p.name||'Phase')+'</b>'+(parts.length?'<div style="margin:3px 0 0 14px">'+parts.join(' &middot; ')+'</div>':'')};
+return '<b>'+esc(p.name||'Phase')+'</b>'+(parts.length?'<div style="margin:3px 0 0">'+parts.join(' &middot; ')+'</div>':'')};
 const vitalsHtml=()=>{
 const vd=vDay(dk(vAt)),slots=vSlots(vd),w=parseTm(vd.wake),na='<span>Set awakening</span>';
 const vt=vAt.getDate()+' '+MN[vAt.getMonth()]+' '+vAt.getFullYear(),cv='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">';
