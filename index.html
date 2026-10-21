@@ -614,8 +614,9 @@ function stSettingsHtml(){const c=cnt();
  if(ST.per==="custom")h+='<label class="f">Time of day (optional)</label><div class="dt"><label class="dt-field is-empty"><input id="stf" type="time" aria-label="From time" value="'+esc(ST.tf)+'"><span aria-hidden="true">From time</span></label><label class="dt-field is-empty"><input id="stt" type="time" aria-label="To time" value="'+esc(ST.tt)+'"><span aria-hidden="true">To time</span></label></div><div class="mu">Empty means all day. With a time window, only hourly habits and time-sensitive items are counted.</div>';
  h+='<label class="f">Include</label><div class="row st-options">'+CATS.map(x=>ch("cat",x[0],x[1],ST.cats[x[0]])).join('')+ch("cat","all","All",allC)+'</div>';
  h+='<label class="f">Metrics</label><div class="row st-options">'+MET.map(x=>ch("met",x[0],x[1],ST.met[x[0]])).join('')+ch("met","all","All",allM)+'</div>';
- h+='<label class="f">File type</label><div class="row st-options st-center">'+FMTS.map(x=>ch("fmt",x[0],x[1],ST.fmt===x[0])).join('')+'</div><div class="mu">No screenshots PDF here: Jarvis has no screenshots.</div>';
- h+='<div class="msg" style="margin:10px 0 0">'+esc(ST.note)+'</div><div class="row" style="margin-top:6px"><button class="btn" data-st="go:dl" style="flex:1;margin-top:0">Download</button><button class="btn sec" data-st="go:pv" style="flex:1;margin-top:0">'+(ST.show?'Hide preview':'Preview')+'</button></div></div>';
+ h+='<label class="f">File type</label><div class="row st-options st-center">'+FMTS.map(x=>ch("fmt",x[0],x[1],ST.fmt===x[0])).join('')+'</div>';
+ if(ST.note)h+='<div class="msg" style="margin:10px 0 0">'+esc(ST.note)+'</div>';
+ h+='<div class="row" style="margin-top:8px"><button class="btn" data-st="go:dl" style="flex:1;margin-top:0">Download</button><button class="btn sec" data-st="go:pv" style="flex:1;margin-top:0">'+(ST.show?'Hide preview':'Preview')+'</button></div></div>';
  if(ST.show){const m=stBuild();h+=m.err?'<div class="msg">'+esc(m.err)+'</div>':'<div class="mu" style="margin:6px 2px">'+m.meta.slice(0,3).map(x=>esc(x[0]+": "+x[1])).join(' &middot; ')+'</div>'+stPreview(m)}
  return h}
 function stResetHtml(){const c=cnt(),ok=ST.rchk&&ST.rtxt.trim().toUpperCase()==="RESET";
