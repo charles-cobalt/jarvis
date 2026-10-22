@@ -82,10 +82,11 @@ const app=initializeApp({"apiKey":"AIzaSyAkZQooqC9D8be4V-IoUTlQli05aET9QrI","aut
 const K='jarvis.items.v1',$=s=>document.querySelector(s);
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()};
 let items=[];try{items=JSON.parse(localStorage.getItem(K))||[]}catch(e){}
-const norm=it=>{it.kind=it.kind||'habit';if(it.kind==='habit'){it.cadence=it.cadence||'daily';if(it.cadence==='weekly'&&Array.isArray(it.slots)&&it.slots.length&&it.wk!==1){it.slots=it.slots.map(v=>(v+1)%7);it.wk=1}if(Array.isArray(it.slots)&&it.slots.length&&it.cadence!=='daily'&&Array.isArray(it.days))it.days=it.days.filter(s=>{const a=s.split('-'),x=new Date(+a[0],+a[1]-1,+a[2],12);if(it.cadence==='weekly')return it.slots.includes(x.getDay());if(it.cadence==='monthly')return it.slots.includes(Math.floor(((x.getDate()-1)+new Date(x.getFullYear(),x.getMonth(),1).getDay())/7)+1);return it.slots.includes(x.getMonth()+1)})}it.days=Array.isArray(it.days)?it.days:[];return it}; items=items.map(norm);
+const norm=it=>{it.kind=it.kind||'habit';if(it.kind==='habit'){it.cadence=it.cadence||'daily';if(it.cadence==='weekly'&&Array.isArray(it.slots)&&it.slots.length&&it.wk!==1){it.slots=it.slots.map(v=>(v+1)%7);it.wk=1}}it.days=Array.isArray(it.days)?it.days:[];return it}; items=items.map(norm);
 const dueFmt=it=>{const p=[];if(it.dueDate){const a=it.dueDate.split('-');if(a.length===3)p.push(MN[+a[1]-1].slice(0,3)+' '+ +a[2])}if(it.dueTime){const b=it.dueTime.split(':');p.push((+b[0]%12||12)+':'+b[1]+' '+(+b[0]<12?'AM':'PM'))}return p.join(' \u00b7 ')};
 const fmtDay=s=>{const a=(s||'').split('-');return a.length===3?MN[+a[1]-1].slice(0,3)+' '+ +a[2]:s};
-const overdue=it=>{if(!it.ts||it.done)return false;const n=new Date();let d=null;if(it.dueDate){const a=it.dueDate.split('-');d=new Date(+a[0],+a[1]-1,+a[2],23,59,59);if(it.dueTime){const b=it.dueTime.split(':');d.setHours(+b[0],+b[1],0,0)}}else if(it.dueTime){const b=it.dueTime.split(':');d=new Date();d.setHours(+b[0],+b[1],0,0)}return d?n>d:false};
+const madeOn=it=>{const m=/^i([0-9a-z]+)[0-9a-z]{4}$/.exec(it.id||'');if(!m)return null;const ms=parseInt(m[1],36);return isNaN(ms)?null:dk(new Date(ms))};
+const overdue=it=>{if(!it.ts||it.done)return false;const n=new Date();let d=null;if(it.dueDate){const a=it.dueDate.split('-');d=new Date(+a[0],+a[1]-1,+a[2],23,59,59);if(it.dueTime){const b=it.dueTime.split(':');d.setHours(+b[0],+b[1],0,0)}return n>d}else if(it.dueTime){const b=it.dueTime.split(':');d=new Date();d.setHours(+b[0],+b[1],0,0);const md=madeOn(it);return n>d||(md!==null&&md<dk(n))}return false};
 const dueReached=it=>{if(!it.dueDate)return true;const a=it.dueDate.split('-');return new Date()>=new Date(+a[0],+a[1]-1,+a[2])};
 items=items.filter(x=>x&&x.name).map(norm);
 let idn=0;items.forEach(it=>{if(!it.id)it.id='i'+(idn++)+'_'+Math.random().toString(36).slice(2,8)});if(idn)localStorage.setItem(K,JSON.stringify(items));
@@ -177,14 +178,16 @@ function draw(){const _v=document.querySelector('#view');if(_v){_v.oninput=null;
 const wmSvg=k=>{const s=document.querySelector('nav button[data-go="'+k+'"] svg');return s?'<svg class="wm" viewBox="'+s.getAttribute('viewBox')+'" fill="currentColor">'+s.innerHTML+'</svg>':''};
 function drawToday(){const t=today(),v=$('#view');
 const Ha=items.filter(x=>x.kind==='habit'),Ta=items.filter(x=>x.kind==='task'),Sa=items.filter(x=>x.kind==='short'),Ga=items.filter(x=>x.kind==='long');
+const t0=dk(new Date());
+const dueNowT=x=>{if(x.done)return x.doneOn===t0||(!!x.dueDate&&dk(pDay(x.dueDate))===t0);if(!x.dueDate)return true;return dk(pDay(x.dueDate))<=t0};
 const ringFor=(p,l)=>p===null?'<div><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="none" stroke="#2f2f2f" stroke-width="4"/><svg x="17" y="15.4" width="6" height="9.2" viewBox="0 0 1149 1749">'+CK.replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,'')+'</svg></svg><span>'+l+'</span></div>':sd(p,l);
 const catPct=L=>{if(!L.length)return null;return Math.round(100*L.filter(x=>x.done).length/L.length)};
 const periodSlots=h=>{const c=h.cadence||'daily',S=h.slots,t=new Date();if(c==='weekly'){const s=monOf(t),o=[];for(let i=0;i<7;i++){const d=addDays(s,i);if(S.includes(d.getDay()))o.push(d)}return o}if(c==='monthly'){const o=[],sn=new Set(),l=new Date(t.getFullYear(),t.getMonth()+1,0,12);for(let d=new Date(t.getFullYear(),t.getMonth(),1,12);d<=l;d.setDate(d.getDate()+1)){const w=womIdx(d);if(S.includes(w)&&!sn.has(w)){sn.add(w);o.push(new Date(d))}}return o}return S.slice().sort((a,b)=>a-b).map(m=>new Date(t.getFullYear(),m-1,1,12))};
-const habDone=h=>{const c=h.cadence||'daily';if(c==='daily')return satNow(h);if(!h.slots||!h.slots.length)return donePer(h,new Date());const ps=periodSlots(h);return ps.length>0&&ps.every(d=>satOn(h,d))};
-const habPct=()=>{if(!Ha.length)return null;return Math.round(100*Ha.filter(habDone).length/Ha.length)};
+const habDone=h=>{const c=h.cadence||'daily';if(c==='daily')return satNow(h);if(!h.slots||!h.slots.length)return donePer(h,new Date());const ms=matchSlots(h,new Date());return ms.length>0&&ms.every(s2=>s2.doneBy)};
+const habPct=()=>{const L=Ha.filter(dueTodayH);if(!L.length)return null;return Math.round(100*L.filter(habDueDone).length/L.length)};
 const bridgeRow=()=>addLinkOn?'<div class="lgrid" style="margin-bottom:8px">'+Ga.map(g=>'<button class="chip sm'+(addParent===g.id?' on':'')+'" data-abr="'+g.id+'">'+esc(g.name)+'</button>').join('')+'</div>':'';
-const longP=()=>{if(!Ga.length)return null;return Math.round(100*Ga.reduce((a,g)=>a+(g.done?1:(bridgePct(g)||0)),0)/Ga.length)};
-const prgRings=()=>ringFor(habPct(),'Habits')+ringFor(catPct(Ta),'Tasks')+ringFor(catPct(Sa),'Short term')+ringFor(longP(),'Long term');
+const longP=()=>{const L=Ga.filter(dueNowT);if(!L.length)return null;return Math.round(100*L.reduce((a,g)=>a+(g.done||(links(g).length&&links(g).every(x=>x.done))?1:(bridgePct(g)||0)),0)/L.length)};
+const prgRings=()=>ringFor(habPct(),'Habits')+ringFor(catPct(Ta.filter(dueNowT)),'Tasks')+ringFor(catPct(Sa.filter(dueNowT)),'Short term')+ringFor(longP(),'Long term');
 let h='<div class="twrap">'+wmSvg('today')+'<h1>Process</h1></div><h2 style="text-align:center">Consistency will always beat Intensity</h2><div class="card dg" style="grid-template-columns:repeat(4,1fr)">'+prgRings()+'</div>';
 if(Ha.length||!items.length)h+='<h2>Habits</h2><ul id="lh"></ul>';
 if(Ta.length)h+='<h2>Tasks</h2><ul id="lt"></ul>';
@@ -202,12 +205,12 @@ v.querySelectorAll('[data-vnav]').forEach(b=>b.onclick=()=>{vAt=addDays(vAt,+b.g
 const lists={habit:$('#lh'),task:$('#lt'),short:$('#ls'),long:$('#lg')};
 if(!items.length&&lists.habit)lists.habit.innerHTML='<div class="empty">Nothing yet. Add what you want to track.</div>';
 items.forEach((it,i)=>{const done=it.kind==='habit'?habDone(it):!!it.done;const li=document.createElement('li');li.className='card'+(done?' done':'');
-let ckH='<button class="ck" aria-label="Done">'+CK+'</button>';if(it.kind==='habit'&&(it.cadence||'daily')==='daily'&&it.slots&&it.slots.length){const dn=it.slots.filter(H=>(it.slotsDone||[]).includes(t+'@'+H)).length;if(dn>0&&dn<it.slots.length)ckH='<button class="ck part" aria-label="Done"><span class="bx"><i class="pf" style="height:'+Math.round(100*dn/it.slots.length)+'%"></i></span><span class="pn">'+dn+'/'+it.slots.length+'</span>'+CK+'</button>'}li.innerHTML=ckH+'<div class="t"></div>'+(it.kind==='habit'?'<div class="tag">'+habTag(it)+'</div>':ogTagFull(it))+'<button class="ic" aria-label="Edit">'+PEN+'</button><button class="ic" aria-label="Remove">'+X+'</button><button class="ic grip" type="button" aria-label="Drag to reorder">'+GRIP+'</button>';
+let ckH='<button class="ck" aria-label="Done">'+CK+'</button>';if(it.kind==='habit'&&it.slots&&it.slots.length){const c2=it.cadence||'daily';let dn=0,tot=0;if(c2==='daily'){dn=it.slots.filter(H=>(it.slotsDone||[]).includes(t+'@'+H)).length;tot=it.slots.length}else{const ms=matchSlots(it,new Date());dn=ms.filter(s2=>s2.doneBy).length;tot=ms.length}if(dn>0&&dn<tot)ckH='<button class="ck part" aria-label="Done"><span class="bx"><i class="pf" style="height:'+Math.round(100*dn/tot)+'%"></i></span><span class="pn">'+dn+'/'+tot+'</span>'+CK+'</button>'}li.innerHTML=ckH+'<div class="t"></div>'+(it.kind==='habit'?'<div class="tag">'+habTag(it)+'</div>':ogTagFull(it))+'<button class="ic" aria-label="Edit">'+PEN+'</button><button class="ic" aria-label="Remove">'+X+'</button><button class="ic grip" type="button" aria-label="Drag to reorder">'+GRIP+'</button>';
 const tt=li.querySelector('.t');
 if(editing===i){li.style.paddingTop=(it.kind==='habit'||it.ts?'12px':'8px');const inp=document.createElement('input');inp.maxLength=80;inp.value=it.name;tt.appendChild(inp);let fin=false;const done2=()=>{if(fin)return;fin=true;it.name=inp.value.trim()||it.name;editing=-1;persist();draw()};inp.onkeydown=e=>{if(e.key==='Enter')done2()};inp.onblur=()=>{setTimeout(()=>{if(li.isConnected&&li.contains(document.activeElement))return;done2()},60)};setTimeout(()=>inp.focus(),0);
 if(it.kind==='habit'){li.style.flexWrap='wrap';const w=document.createElement('div');w.className='row add-cadence';w.style.cssText='flex-basis:100%;margin:0 0 12px';w.innerHTML=Object.keys(CAD).map(k=>'<button class="chip'+((it.cadence||'daily')===k?' on':'')+'" data-cad="'+k+'">'+CAD[k]+'</button>').join('');li.appendChild(w);w.querySelectorAll('[data-cad]').forEach(b=>b.onmousedown=e=>{e.preventDefault();const nm=li.querySelector('.t input');if(nm){const v2=nm.value.trim();if(v2)it.name=v2}it.cadence=b.dataset.cad;delete it.slots;persist();draw()})
 const sw2=document.createElement('div');sw2.className='row add-cadence';sw2.style.cssText='flex-basis:100%;margin:0 0 12px;display:grid;grid-template-columns:repeat('+slotCols(it.cadence||'daily')+',1fr);gap:6px';sw2.innerHTML=slotOpts(it.cadence||'daily').map(v=>'<button class="chip sm'+((it.slots||[]).includes(v)?' on':'')+'" data-esl="'+v+'">'+slotLbl(it.cadence||'daily',v)+'</button>').join('');li.appendChild(sw2);sw2.querySelectorAll('[data-esl]').forEach(b=>b.onmousedown=e=>{e.preventDefault();const nm=li.querySelector('.t input');if(nm){const v2=nm.value.trim();if(v2)it.name=v2}const nn=+b.dataset.esl;it.slots=it.slots||[];it.slots=it.slots.includes(nn)?it.slots.filter(x=>x!==nn):it.slots.concat(nn).sort((a,b)=>a-b);persist();draw()})}else{li.style.flexWrap='wrap';const cw=document.createElement('div');cw.className='row add-cadence';cw.style.cssText='flex-basis:100%;margin:0 0 8px';const c=document.createElement('button');c.className='chip sm'+(it.ts?' on':'');c.textContent='TIME SENSITIVE';cw.appendChild(c);c.onmousedown=e=>{e.preventDefault();const nm=li.querySelector('.t input');if(nm){const v2=nm.value.trim();if(v2)it.name=v2}it.ts=!it.ts;if(!it.ts){delete it.dueDate;delete it.dueTime}persist();draw()};li.appendChild(cw);if(it.ts){const d=document.createElement('div');d.className='dt';d.style.cssText='flex-basis:100%;margin:0 0 12px';d.innerHTML='<label class="dt-field is-empty"><input type="date" aria-label="Due date"><span aria-hidden="true">Due date</span></label><label class="dt-field is-empty"><input type="time" aria-label="Due time"><span aria-hidden="true">Due time</span></label>';const di=d.children[0].querySelector('input'),ti=d.children[1].querySelector('input');di.value=it.dueDate||'';ti.value=it.dueTime||'';d.children[0].classList.toggle('is-empty',!di.value);d.children[1].classList.toggle('is-empty',!ti.value);const sv=()=>{const nm=li.querySelector('.t input');if(nm){const v2=nm.value.trim();if(v2)it.name=v2}it.dueDate=di.value;it.dueTime=ti.value;persist()};di.onchange=sv;ti.onchange=sv;li.appendChild(d)}if(it.kind==='short'&&Ga.length){const lc=document.createElement('button');lc.className='ic';lc.type='button';lc.setAttribute('aria-label','Link to a long term');lc.style.cssText='flex:0 0 auto'+(it.parent?';color:#f2f2f2':'');lc.innerHTML=LNK;li.insertBefore(lc,li.querySelector('[aria-label="Edit"]'));lc.onmousedown=e=>{e.preventDefault();const nm=li.querySelector('.t input');if(nm){const v2=nm.value.trim();if(v2)it.name=v2}if(it.parent){delete it.parent;linkOpen=-1}else{linkOpen=linkOpen===i?-1:i}persist();draw()};if(it.parent?Ga.length>1:linkOpen===i){const gw=document.createElement('div');gw.className='lgrid';gw.style.cssText='flex-basis:100%;margin:0 0 12px';gw.innerHTML=Ga.map(g=>'<button class="chip sm'+(it.parent===g.id?' on':'')+'" data-br="'+g.id+'">'+esc(g.name)+'</button>').join('');li.appendChild(gw);gw.querySelectorAll('[data-br]').forEach(b=>b.onmousedown=e=>{e.preventDefault();const nm=li.querySelector('.t input');if(nm){const v2=nm.value.trim();if(v2)it.name=v2}it.parent=b.dataset.br;linkOpen=-1;persist();draw()})}}}}else tt.textContent=it.name;
-li.querySelector('.ck').onclick=()=>{if(it.kind==='habit'){const c=it.cadence||'daily',S=it.slots;it.days=it.days||[];if(S&&S.length){if(c==='daily'){it.slotsDone=it.slotsDone||[];const dn=S.filter(H=>it.slotsDone.includes(t+'@'+H)).length;if(dn<S.length){const nx=S.find(H=>!it.slotsDone.includes(t+'@'+H));it.slotsDone.push(t+'@'+nx)}else it.slotsDone=it.slotsDone.filter(s2=>s2.split('@')[0]!==t)}else{const ps=periodSlots(it),nx=ps.find(d=>!satOn(it,d));if(nx)it.days.push(dk(nx));else if(c==='weekly'){const ks=new Set(ps.map(dk));it.days=it.days.filter(s2=>!ks.has(s2))}else if(c==='monthly'){const nw=new Date();it.days=it.days.filter(s2=>{const x=pDay(s2);return!(x.getFullYear()===nw.getFullYear()&&x.getMonth()===nw.getMonth()&&S.includes(womIdx(x)))})}else{const nw=new Date();it.days=it.days.filter(s2=>{const x=pDay(s2);return!(x.getFullYear()===nw.getFullYear()&&S.includes(x.getMonth()+1))})}}}else{const pk=pkeyD(new Date(),c);if(it.days.some(s2=>pkeyS(s2,c)===pk))it.days=it.days.filter(s2=>pkeyS(s2,c)!==pk);else it.days.push(t)}}else{it.done=!it.done;if(it.done)it.doneOn=today();else delete it.doneOn}persist();draw()};
+li.querySelector('.ck').onclick=()=>{if(it.kind==='habit'){const c=it.cadence||'daily',S=it.slots;it.days=it.days||[];if(S&&S.length){if(c==='daily'){it.slotsDone=it.slotsDone||[];const dn=S.filter(H=>it.slotsDone.includes(t+'@'+H)).length;if(dn<S.length){const nx=S.find(H=>!it.slotsDone.includes(t+'@'+H));it.slotsDone.push(t+'@'+nx)}else it.slotsDone=it.slotsDone.filter(s2=>s2.split('@')[0]!==t)}else{const ms=matchSlots(it,new Date()),nx=ms.find(s2=>!s2.doneBy);if(nx)it.days.push(t);else{const ks=new Set(ms.filter(s2=>s2.doneBy).map(s2=>dk(s2.doneBy)));it.days=it.days.filter(s2=>!ks.has(s2))}}}else{const pk=pkeyD(new Date(),c);if(it.days.some(s2=>pkeyS(s2,c)===pk))it.days=it.days.filter(s2=>pkeyS(s2,c)!==pk);else it.days.push(t)}}else{it.done=!it.done;if(it.done)it.doneOn=today();else delete it.doneOn}persist();draw()};
 li.querySelector('[aria-label="Edit"]').onclick=()=>{editing=i;draw()};li.querySelector('[aria-label="Remove"]').onclick=()=>{items.splice(i,1);persist();draw()};li.dataset.iid=it.id;const grip=li.querySelector('.grip');grip.onclick=e=>e.preventDefault();grip.addEventListener('pointerdown',e=>{if(editing===i)return;e.preventDefault();const ul=li.parentNode;if(!ul)return;const pid=e.pointerId,y0=e.clientY,off0=li.offsetTop;let moved=false;li.classList.add('drag');const move=ev=>{if(ev.pointerId!==pid)return;moved=true;li.style.transform='translateY('+((ev.clientY-y0)+(off0-li.offsetTop))+'px)';const cy=ev.clientY;let pv=li.previousElementSibling;while(pv){const r=pv.getBoundingClientRect();if(cy<r.top+r.height/2){ul.insertBefore(li,pv);pv=li.previousElementSibling}else pv=null}let nx=li.nextElementSibling;while(nx){const r=nx.getBoundingClientRect();if(cy>r.top+r.height/2){ul.insertBefore(nx,li);nx=li.nextElementSibling}else nx=null}};const up=ev=>{if(ev.pointerId!==undefined&&ev.pointerId!==pid)return;document.removeEventListener('pointermove',move,true);document.removeEventListener('pointerup',up,true);document.removeEventListener('pointercancel',up,true);li.classList.remove('drag');li.style.transform='';if(!moved)return;const kind=it.kind,seq=[...ul.children].map(c=>items.find(x=>x.id===c.dataset.iid)).filter(Boolean);let p=0;items=items.map(x=>x.kind===kind?seq[p++]:x);persist();draw()};document.addEventListener('pointermove',move,true);document.addEventListener('pointerup',up,true);document.addEventListener('pointercancel',up,true)});
 const ul=lists[it.kind]||lists.habit;if(ul)ul.appendChild(li)});
 const snapAdd=()=>{addDraft=$('#in').value;const ad=$('#ad');if(ad){addDate=ad.value;addTime=$('#at').value}};
@@ -274,7 +277,7 @@ return s};
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const num=v=>{const n=parseFloat(v);return isFinite(n)?n:null};
 const vrg=r=>{if(!Array.isArray(r))return null;const a=num(r[0]),b=num(r[1]);return a===null||b===null?null:[a,b]};
-const stat=(v,r,u)=>{v=Math.round(v);if(!v)return'';if(v<r[0])return'UNDER '+(r[0]-v)+u;if(v>r[1])return'OVER '+(v-r[1])+u;return'IN RANGE'};
+const stat=(v,r,u)=>{v=Math.round(v);if(v<r[0])return'UNDER '+(r[0]-v)+u;if(v>r[1])return'OVER '+(v-r[1])+u;return'IN RANGE'};
 const dietToday=()=>{const vd=vDay(dk(vAt)),fd=vd.food||{},T={kcal:0,p:0,c:0,f:0};Object.keys(fd).forEach(id=>{const r=parseLine(fd[id]||'');T.kcal+=r.kcal;T.p+=r.p;T.c+=r.c;T.f+=r.f});const B=[['Breakfast + Snack','meal1','snack1'],['Lunch + Snack','meal2','snack2'],['Dinner + Snack','meal3','snack3']].map(([l,a,b])=>[l,parseLine(fd[a]||'').kcal+parseLine(fd[b]||'').kcal]);return{T,B}};
 const BODY=[['age','Age'],['wr','Healthy Weight Range'],['ht','Height'],['bf','Target Body Fat'],['wa','Target Waist'],['tw','Target Weight'],['tr','Training']];
 const SEEDBODY={age:'35',wr:'168 - 178 lbs',ht:'5\'10"',bf:'11%',wa:'32"',tw:'165 - 170 lbs',tr:'4 days/week ~ 1 hour per session'};
@@ -328,7 +331,8 @@ const P=phases(),p=P.find(x=>x.id===t.dataset.dmsel);if(!p)return;
 if(!p.on)phPick=phPick===p.id?null:p.id;
 persistV();rr()};
 };
-const dietLine=()=>{const p=dietCur();if(!p)return'';const{T}=dietToday();if(!T.kcal)return'';
+const dietLine=()=>{const p=dietCur();if(!p)return'';const{T}=dietToday();const empty=![p.cal,p.p,p.c,p.f].some(r=>vrg(r));if(!T.kcal&&!empty)return'';
+if(empty)return '<b>'+esc(p.name||'Phase')+' &middot; SET TARGETS IN SETTINGS</b>';
 const seg=(l,v,r,u)=>{const rr=vrg(r);return rr?l+' '+(stat(v,rr,u)||'IN RANGE'):''};
 const parts=[seg('Cal',T.kcal,p.cal,''),seg('P',T.p,p.p,'g'),seg('C',T.c,p.c,'g'),seg('F',T.f,p.f,'g')].filter(x=>x);
 return '<b>'+esc(p.name||'Phase')+'</b>'+(parts.length?'<div style="margin:3px 0 0">'+parts.join(' &middot; ')+'</div>':'')};
@@ -352,19 +356,72 @@ const pDay=s=>{const a=s.split('-');return new Date(+a[0],+a[1]-1,+a[2],12)};
 const pkeyD=(d,c)=>c==='weekly'?'W'+dk(monOf(d)):c==='monthly'?'M'+d.getFullYear()+'-'+(d.getMonth()+1):c==='yearly'?'Y'+d.getFullYear():dk(d);
 const pkeyS=(s,c)=>pkeyD(pDay(s),c);
 const womIdx=d=>{const off=new Date(d.getFullYear(),d.getMonth(),1).getDay();return Math.floor(((d.getDate()-1)+off)/7)+1};
-const occurs=(h,d)=>{const c=h.cadence||'daily',S=h.slots;if(S&&S.length){if(c==='weekly')return S.includes(d.getDay());if(c==='monthly')return S.includes(womIdx(d));if(c==='yearly')return S.includes(d.getMonth()+1);return true}if(c==='weekly')return d.getDay()===EOW;if(c==='monthly')return d.getDate()===new Date(d.getFullYear(),d.getMonth()+1,0).getDate();if(c==='yearly')return d.getMonth()===11&&d.getDate()===31;return true};
-const satOn=(h,d)=>{if(!occurs(h,d))return false;const c=h.cadence||'daily',S=h.slots;if(S&&S.length){if(c==='daily')return S.every(H=>(h.slotsDone||[]).includes(dk(d)+'@'+H));if(c==='weekly')return(h.days||[]).includes(dk(d));if(c==='monthly')return(h.days||[]).some(s=>{const x=pDay(s);return x.getFullYear()===d.getFullYear()&&x.getMonth()===d.getMonth()&&womIdx(x)===womIdx(d)});return(h.days||[]).some(s=>{const x=pDay(s);return x.getFullYear()===d.getFullYear()&&x.getMonth()===d.getMonth()})}return c==='daily'?(h.days||[]).includes(dk(d)):(h.days||[]).some(s=>pkeyS(s,c)===pkeyD(d,c))};
+const lastWom=(y,m)=>womIdx(new Date(y,m+1,0,12));
+const matchSlots=(h,ref)=>{const c=h.cadence||'daily',S=(h.slots||[]).slice().sort((a,b)=>a-b);let ends=[],pStart,pEnd;
+ if(c==='weekly'){const s=monOf(ref);pStart=s;pEnd=addDays(s,6);ends=S.map(wd=>addDays(s,wd))}
+ else if(c==='monthly'){const y=ref.getFullYear(),m=ref.getMonth(),lw=lastWom(y,m);pStart=new Date(y,m,1,12);pEnd=new Date(y,m+1,0,12);ends=S.map(w=>Math.min(w,lw)).map(ew=>{let f=null;for(let dd=1;dd<=31;dd++){const dt=new Date(y,m,dd,12);if(dt.getMonth()!==m)break;if(womIdx(dt)===ew){f=dt;break}}return f?addDays(monOf(f),6):null}).filter(Boolean)}
+ else{pStart=new Date(ref.getFullYear(),0,1,12);pEnd=new Date(ref.getFullYear(),11,31,12);ends=S.map(mn=>new Date(ref.getFullYear(),mn,0,12))}
+ const comps=(h.days||[]).map(pDay).filter(x=>!isNaN(x)).sort((a,b)=>a-b);const used=new Set();
+ return ends.map(end=>{let doneBy=null;for(let i=0;i<comps.length;i++){if(used.has(i))continue;if(comps[i]>=pStart&&comps[i]<=pEnd){doneBy=comps[i];used.add(i);break}}return{end,doneBy}})};
+const dueTodayH=h=>{const c=h.cadence||'daily',S=h.slots,n=new Date();
+ if(c==='daily')return true;
+ if(!S||!S.length){if(c==='weekly')return n.getDay()===EOW;if(c==='monthly')return n.getDate()===new Date(n.getFullYear(),n.getMonth()+1,0).getDate();return n.getMonth()===11&&n.getDate()===31}
+ if(c==='weekly')return S.includes(n.getDay());
+ if(c==='monthly')return S.some(w=>Math.min(w,lastWom(n.getFullYear(),n.getMonth()))===womIdx(n));
+ return S.includes(n.getMonth()+1)};
+const habDueDone=h=>{const c=h.cadence||'daily',n=new Date();
+ if(c==='daily')return satNow(h);
+ if(!h.slots||!h.slots.length)return donePer(h,n);
+ const ms=matchSlots(h,n);let s=null;
+ if(c==='weekly')s=ms.find(s2=>s2.end.getDay()===n.getDay());
+ else if(c==='monthly')s=ms.find(s2=>dk(monOf(s2.end))===dk(monOf(n)));
+ else s=ms.find(s2=>s2.end.getMonth()===n.getMonth());
+ return!!s&&!!s.doneBy};
+const hBump=(h,d)=>{const c=h.cadence||'daily',S=h.slots;if(c==='daily'||!S||!S.length)return 0;const k=dk(d),ms=matchSlots(h,d);
+ if(c==='weekly')return ms.filter(s2=>s2.doneBy&&dk(s2.doneBy)===k&&s2.end.getDay()!==d.getDay()).length;
+ if(c==='monthly')return ms.filter(s2=>s2.doneBy&&dk(s2.doneBy)===k&&dk(monOf(s2.end))!==dk(monOf(d))).length;
+ return ms.filter(s2=>s2.doneBy&&dk(s2.doneBy)===k&&s2.end.getMonth()!==d.getMonth()).length};
+const hExpDay=(h,d)=>{const c=h.cadence||'daily',S=h.slots,k=dk(d);
+ if(c==='daily')return S&&S.length?S.length:1;
+ let base=0;
+ if(occurs(h,d)){
+  if(!S||!S.length){base=(h.days||[]).some(s2=>pkeyS(s2,c)===pkeyD(d,c)&&s2<k)?0:1}
+  else{const ms=matchSlots(h,d);let s=null;
+   if(c==='weekly')s=ms.find(s2=>s2.end.getDay()===d.getDay());
+   else if(c==='monthly')s=ms.find(s2=>dk(monOf(s2.end))===dk(monOf(d)));
+   else s=ms.find(s2=>s2.end.getMonth()===d.getMonth());
+   base=s&&!(s.doneBy&&dk(s.doneBy)<k)?1:0}}
+ return base+hBump(h,d)};
+const hDonDay=(h,d)=>{const c=h.cadence||'daily',S=h.slots,k=dk(d);
+ if(c==='daily')return S&&S.length?S.filter(H=>(h.slotsDone||[]).includes(k+'@'+H)).length:((h.days||[]).includes(k)?1:0);
+ return(h.days||[]).filter(s2=>s2===k).length};
+const expOn=(x,d,t0)=>{const k=dk(d);
+ if(!x.dueDate){if(x.dueTime)return x.done?x.doneOn===k:k===t0;return x.done&&x.doneOn===k}
+ const dd=dk(pDay(x.dueDate));
+ if(x.done&&x.doneOn)return x.doneOn===k||(dd===k&&x.doneOn>=dd);
+ return dd===k||(k===t0&&pDay(x.dueDate)<d)};
+const donOn=(x,d)=>x.done&&x.doneOn===dk(d);
+const tkBkt=(x,bd)=>{const ks=new Set(bd.map(dk)),t0=dk(new Date());let g=0,d=0;
+ if(x.dueDate){const dd=dk(pDay(x.dueDate)),inB=ks.has(dd),donB=!!(x.done&&x.doneOn&&ks.has(x.doneOn));
+  if(inB||donB)g=1;
+  if(!x.done&&!inB&&pDay(x.dueDate)<bd[bd.length-1]&&ks.has(t0))g=1;
+  if(x.done&&(donB||(inB&&x.doneOn&&x.doneOn<=dd)))d=1}
+ else if(x.dueTime){if(x.done){if(x.doneOn&&ks.has(x.doneOn)){g=1;d=1}}else if(ks.has(t0))g=1}
+ else{if(x.done&&x.doneOn&&ks.has(x.doneOn)){g=1;d=1}}
+ return{g,d}};
+const occurs=(h,d)=>{const c=h.cadence||'daily',S=h.slots;if(S&&S.length){if(c==='weekly')return S.includes(d.getDay());if(c==='monthly')return S.some(w=>Math.min(w,lastWom(d.getFullYear(),d.getMonth()))===womIdx(d));if(c==='yearly')return S.includes(d.getMonth()+1);return true}if(c==='weekly')return d.getDay()===EOW;if(c==='monthly')return d.getDate()===new Date(d.getFullYear(),d.getMonth()+1,0).getDate();if(c==='yearly')return d.getMonth()===11&&d.getDate()===31;return true};
+const satOn=(h,d)=>{if(!occurs(h,d))return false;const c=h.cadence||'daily',S=h.slots;if(S&&S.length){if(c==='daily')return S.every(H=>(h.slotsDone||[]).includes(dk(d)+'@'+H));const ms=matchSlots(h,d);if(c==='weekly')return ms.some(s2=>s2.end.getDay()===d.getDay()&&s2.doneBy);if(c==='monthly')return ms.some(s2=>dk(monOf(s2.end))===dk(monOf(d))&&s2.doneBy);return ms.some(s2=>s2.end.getMonth()===d.getMonth()&&s2.doneBy)}return c==='daily'?(h.days||[]).includes(dk(d)):(h.days||[]).some(s=>pkeyS(s,c)===pkeyD(d,c))};
 const slotLbl=(c,v)=>c==='daily'?((v%12||12)+(v<12?'A':'P')):c==='weekly'?'SMTWTFS'[v]:c==='monthly'?'W'+v:MN[v-1].slice(0,3);
-const habTag=it=>{const c=it.cadence||'daily',S=it.slots;let x=CAD[c];if(S&&S.length){x+=' \u00b7 '+S.map(v=>slotLbl(c,v)).join(' ');if(c==='daily'){const dn=S.filter(H=>(it.slotsDone||[]).includes(today()+'@'+H)).length;if(dn)x+=' \u00b7 '+dn+'/'+S.length}}return x};
+const habTag=it=>{const c=it.cadence||'daily',S=it.slots;let x=CAD[c];if(S&&S.length){x+=' \u00b7 '+S.map(v=>slotLbl(c,v)).join(' ');let dn=0,tot=0;if(c==='daily'){dn=S.filter(H=>(it.slotsDone||[]).includes(today()+'@'+H)).length;tot=S.length}else{const ms=matchSlots(it,new Date());dn=ms.filter(s2=>s2.doneBy).length;tot=ms.length}if(dn)x+=' \u00b7 '+dn+'/'+tot}return x};
 const slotOpts=c=>c==='daily'?Array.from({length:24},(x,i)=>i):c==='weekly'?[0,1,2,3,4,5,6]:c==='monthly'?[1,2,3,4,5]:[1,2,3,4,5,6,7,8,9,10,11,12];
 const slotCols=c=>c==='daily'?6:c==='weekly'?7:c==='monthly'?5:6;
 const slotPicker=(c,sel,attr)=>'<div class="row add-cadence" style="margin-bottom:8px;display:grid;grid-template-columns:repeat('+slotCols(c)+',1fr);gap:6px">'+slotOpts(c).map(v=>'<button class="chip sm'+(sel.includes(v)?' on':'')+'" '+attr+'="'+v+'">'+slotLbl(c,v)+'</button>').join('')+'</div>';
 const links=g=>items.filter(x=>x.kind==='short'&&x.parent===g.id);
-const bridgeSteps=g=>links(g).filter(x=>x.dueDate?(dueReached(x)||x.done):true);
-const bridgePct=g=>{if(!links(g).length)return null;const L=bridgeSteps(g);return L.length?L.filter(x=>x.done).length/L.length:null};
+const bridgeSteps=g=>links(g);
+const bridgePct=g=>{const L=links(g);return L.length?L.filter(x=>x.done).length/L.length:null};
 const bridgeInd=it=>{const L=bridgeSteps(it);if(!links(it).length||!L.length)return'';const d=L.filter(x=>x.done).length,pp=Math.round(100*d/L.length);return pp===0?'<svg style="width:12px;height:auto;display:inline-block;vertical-align:middle" viewBox="0 0 1149 1749">'+CKI+'</svg>':pp+'%'};
 const bridgeBar=it=>{if(it.kind!=='long')return'';const L=bridgeSteps(it);if(!links(it).length||!L.length)return'';const d=L.filter(x=>x.done).length,pp=Math.round(100*d/L.length);return '<div class="pb"><i style="width:'+pp+'%"></i></div><div class="mu">'+d+' of '+L.length+' step'+(L.length>1?'s':'')+'</div>'};
-const ogTagFull=it=>{let t2='';if(it.ts&&dueFmt(it))t2+=(overdue(it)?'Past due \u00b7 ':'')+dueFmt(it);if(it.kind==='long'){const L=bridgeSteps(it);if(L.length){const d=L.filter(x=>x.done).length;t2+=(t2?' \u00b7 ':'')+d+'/'+L.length+' step'+(L.length>1?'s':'')}}return t2?'<div class="tag'+(overdue(it)?' od':'')+'">'+t2+'</div>':''};
+const ogTagFull=it=>{let t2='';if(it.ts&&dueFmt(it))t2+=(overdue(it)?'Past due \u00b7 ':'')+dueFmt(it);if(it.kind==='long'){const L=bridgeSteps(it);if(L.length){const d=L.filter(x=>x.done).length,up=L.filter(x=>!x.done&&x.dueDate&&!dueReached(x)).length;t2+=(t2?' \u00b7 ':'')+d+'/'+L.length+' step'+(L.length>1?'s':'')+(up?' \u00b7 <span style="white-space:nowrap">'+up+' upcoming</span>':'')}}return t2?'<div class="tag'+(overdue(it)?' od':'')+'">'+t2+'</div>':''};
 const satNow=it=>satOn(it,new Date());
 const donePer=(h,d)=>{const c=h.cadence||'daily';return c==='daily'?(h.days||[]).includes(dk(d)):(h.days||[]).some(s=>pkeyS(s,c)===pkeyD(d,c))};
 function rng(a,b){const o=[];for(let d=new Date(a);d<=b;d=addDays(d,1))o.push(new Date(d));return o}
@@ -378,17 +435,18 @@ else if(sMode==='week'){const s=monOf(sAt);days=rng(s,addDays(s,6));title=days[0
 else if(sMode==='month'){days=rng(new Date(y,m,1,12),new Date(y,m+1,0,12));title=MN[m]+' '+y}
 else{days=rng(new Date(y,0,1,12),new Date(y,11,31,12));title=String(y)}
 const inR=new Set(days.map(dk));
-const exp=h=>{const c=h.cadence||'daily',S=h.slots;if(c==='daily')return days.length*(S&&S.length?S.length:1);if(!S||!S.length)return new Set(days.map(d=>pkeyD(d,c))).size;if(c==='weekly')return days.filter(d=>S.includes(d.getDay())).length;if(c==='monthly')return new Set(days.filter(d=>S.includes(womIdx(d))).map(d=>d.getFullYear()+'-'+(d.getMonth()+1)+'W'+womIdx(d))).size;return new Set(days.filter(d=>S.includes(d.getMonth()+1)).map(d=>d.getFullYear()+'-'+(d.getMonth()+1))).size};
-const act=h=>{const c=h.cadence||'daily',S=h.slots;if(c==='daily'&&S&&S.length)return(h.slotsDone||[]).filter(s2=>inR.has(s2.split('@')[0])).length;if(!S||!S.length){const ps=new Set((h.days||[]).map(s2=>pkeyS(s2,c))),s3=new Set(days.map(d=>pkeyD(d,c)));let a=0;s3.forEach(k=>{if(ps.has(k))a++});return a}const ds=(h.days||[]).map(pDay).filter(d=>inR.has(dk(d)));if(c==='weekly')return ds.filter(d=>S.includes(d.getDay())).length;if(c==='monthly')return new Set(ds.filter(d=>S.includes(womIdx(d))).map(d=>d.getFullYear()+'-'+(d.getMonth()+1)+'W'+womIdx(d))).size;return new Set(ds.filter(d=>S.includes(d.getMonth()+1)).map(d=>d.getFullYear()+'-'+(d.getMonth()+1))).size};
+const exp=h=>{const c=h.cadence||'daily',S=h.slots;if(c==='daily')return days.length*(S&&S.length?S.length:1);if(!S||!S.length)return new Set(days.map(d=>pkeyD(d,c))).size;if(c==='weekly')return days.filter(d=>S.includes(d.getDay())).length;if(c==='monthly'){let n=0;S.forEach(w=>{if(days.some(d=>Math.min(w,lastWom(d.getFullYear(),d.getMonth()))===womIdx(d)))n++});return n}return S.filter(mn=>days.some(d=>d.getMonth()+1===mn)).length};
+const act=h=>{const c=h.cadence||'daily',S=h.slots;if(c==='daily'&&S&&S.length)return(h.slotsDone||[]).filter(s2=>inR.has(s2.split('@')[0])).length;if(!S||!S.length){const ps=new Set((h.days||[]).map(s2=>pkeyS(s2,c))),s3=new Set(days.map(d=>pkeyD(d,c)));let a=0;s3.forEach(k=>{if(ps.has(k))a++});return a}const ds=(h.days||[]).map(pDay).filter(d=>inR.has(dk(d)));return ds.length};
+const goalH=h=>{const g=exp(h);return g+Math.max(0,act(h)-g)};
 const sat=(h,d)=>satOn(h,d);
 const TK=items.filter(x=>x.kind==='task'),SK=OH.filter(x=>x.kind==='short'),LK=OH.filter(x=>x.kind==='long');
 const t0=dk(new Date());
-const dueOn=(x,d)=>{if(!x.dueDate)return x.done&&x.doneOn===dk(d);const k=dk(d);return dk(pDay(x.dueDate))===k||(k===t0&&!x.done&&pDay(x.dueDate)<d)};
-const inP=x=>days.some(d=>dueOn(x,d));
-const tkP=TK.filter(inP);
-const dayG=d=>HB.filter(h=>occurs(h,d)).length+TK.filter(x=>dueOn(x,d)).length;
-const dayC=d=>HB.filter(h=>sat(h,d)).length+TK.filter(x=>dueOn(x,d)&&x.done).length;
-const per=days.map(dayC),goal=HB.reduce((a,h)=>a+exp(h),0)+tkP.length,comp=HB.reduce((a,h)=>a+act(h),0)+tkP.filter(x=>x.done).length,left=goal-comp,pct=goal?Math.round(100*comp/goal):0;
+const eOn=(x,d)=>expOn(x,d,t0);
+const tkm=TK.map(x=>({x,r:tkBkt(x,days)})).filter(e=>e.r.g||e.r.d);
+const tkP=tkm.map(e=>e.x);
+const dayG=d=>HB.reduce((a,h)=>a+hExpDay(h,d),0)+TK.filter(x=>eOn(x,d)).length;
+const dayC=d=>HB.reduce((a,h)=>a+hDonDay(h,d),0)+TK.filter(x=>donOn(x,d)).length;
+const per=days.map(dayC),goal=HB.reduce((a,h)=>a+goalH(h),0)+tkm.reduce((a,e)=>a+e.r.g,0),comp=HB.reduce((a,h)=>a+act(h),0)+tkm.reduce((a,e)=>a+e.r.d,0),left=Math.max(0,goal-comp),pct=goal?Math.min(100,Math.round(100*comp/goal)):0;
 const rg=(p,l)=>p===null?'<div><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="none" stroke="#2f2f2f" stroke-width="4"/><text x="20" y="23" text-anchor="middle" fill="#8a8a8a" font-size="10" font-family="inherit">-</text></svg><span>'+l+'</span></div>':sd(p,l);
 const tp2=(L,f)=>L.length?Math.round(100*L.reduce((a,x)=>a+f(x),0)/L.length):null;
 const allS=SK.concat(UH.filter(x=>x.kind==='short')),allL=LK.concat(UH.filter(x=>x.kind==='long'));
@@ -454,12 +512,12 @@ function stHabCalc(h,days,w){const c=h.cadence||"daily",S=h.slots,inR=new Set(da
  if(c==="daily")g=days.length*(S&&S.length?S.length:1);
  else if(!S||!S.length)g=new Set(days.map(x=>pkeyD(x,c))).size;
  else if(c==="weekly")g=days.filter(x=>S.includes(x.getDay())).length;
- else if(c==="monthly")g=new Set(days.filter(x=>S.includes(womIdx(x))).map(x=>x.getFullYear()+"-"+(x.getMonth()+1)+"W"+womIdx(x))).size;
- else g=new Set(days.filter(x=>S.includes(x.getMonth()+1)).map(x=>x.getFullYear()+"-"+(x.getMonth()+1))).size;
+ else if(c==="monthly"){g=0;S.forEach(w=>{if(days.some(x=>Math.min(w,lastWom(x.getFullYear(),x.getMonth()))===womIdx(x)))g++})}
+ else g=S.filter(mn=>days.some(x=>x.getMonth()+1===mn)).length;
  if(c==="daily"&&S&&S.length)d=(h.slotsDone||[]).filter(s2=>inR.has(s2.split("@")[0])).length;
  else if(!S||!S.length){const ps=new Set((h.days||[]).map(s2=>pkeyS(s2,c))),s3=new Set(days.map(x=>pkeyD(x,c)));d=0;s3.forEach(k=>{if(ps.has(k))d++})}
- else{const ds=(h.days||[]).map(pDay).filter(x=>inR.has(dk(x)));if(c==="weekly")d=ds.filter(x=>S.includes(x.getDay())).length;else if(c==="monthly")d=new Set(ds.filter(x=>S.includes(womIdx(x))).map(x=>x.getFullYear()+"-"+(x.getMonth()+1)+"W"+womIdx(x))).size;else d=new Set(ds.filter(x=>S.includes(x.getMonth()+1)).map(x=>x.getFullYear()+"-"+(x.getMonth()+1))).size}
- return{g,d}}
+ else{const ds=(h.days||[]).map(pDay).filter(x=>inR.has(dk(x)));d=ds.length}
+ g+=Math.max(0,d-g);return{g,d}}
 const stRate=(g,d)=>g?Math.round(100*d/g):null;
 const stSched=h=>{const c=h.cadence||"daily",S=h.slots;let x=CAD[c];if(S&&S.length)x+=" - "+S.map(v=>slotLbl(c,v)).join(" ");return x};
 function stBuild(o0){const o=Object.assign({},ST,o0||{});
@@ -470,16 +528,17 @@ function stBuild(o0){const o=Object.assign({},ST,o0||{});
  const w=(o.tf||o.tt)?[o.tf?stMin(o.tf):0,o.tt?stMin(o.tt):1439]:null;
  if(w&&w[0]>w[1])return{err:"The time window starts after it ends."};
  const days=rng(rr.a,rr.b),inR=new Set(days.map(dk));
- const dueOn=(x,d)=>{if(!x.dueDate)return x.done&&x.doneOn===dk(d);const k=dk(d);return dk(pDay(x.dueDate))===k||(k===t0&&!x.done&&pDay(x.dueDate)<d)};
+ const eOn=(x,d)=>expOn(x,d,t0);
  const inWin=x=>!w||(x.dueTime&&stMin(x.dueTime)>=w[0]&&stMin(x.dueTime)<=w[1]);
  const HB=o.cats.habit?items.filter(x=>x.kind==="habit"):[];
  const TKall=o.cats.task?items.filter(x=>x.kind==="task"&&inWin(x)):[];
- const goalList=k=>{if(!o.cats[k])return[];return items.filter(x=>x.kind===k&&inWin(x)).filter(x=>{if(x.dueDate)return days.some(d=>dueOn(x,d));if(x.done&&x.doneOn&&inR.has(dk(pDay(x.doneOn))))return true;return !x.done&&dk(rr.b)===t0})};
+ const goalList=k=>{if(!o.cats[k])return[];return items.filter(x=>x.kind===k&&inWin(x)).filter(x=>{if(x.dueDate)return days.some(d=>eOn(x,d)||donOn(x,d));if(x.done&&x.doneOn&&inR.has(dk(pDay(x.doneOn))))return true;return !x.done&&dk(rr.b)===t0})};
  const SK=goalList("short"),LK=goalList("long");
  const hc=HB.map(h=>({h,r:stHabCalc(h,days,w)})).filter(x=>x.r);
- const tkP=TKall.filter(x=>days.some(d=>dueOn(x,d)));
- const gd=bd=>{let g=0,d=0;HB.forEach(h=>{const r=stHabCalc(h,bd,w);if(r){g+=r.g;d+=r.d}});TKall.forEach(x=>{if(bd.some(q=>dueOn(x,q))){g++;if(x.done)d++}});return{g,d}};
- const hg=hc.reduce((a,x)=>a+x.r.g,0),hd=hc.reduce((a,x)=>a+x.r.d,0),tg=tkP.length,td=tkP.filter(x=>x.done).length;
+ const tkm=TKall.map(x=>({x,r:tkBkt(x,days)})).filter(e=>e.r.g||e.r.d);
+ const tkP=tkm.map(e=>e.x);
+ const gd=bd=>{let g=0,d=0;HB.forEach(h=>{const r=stHabCalc(h,bd,w);if(r){g+=r.g;d+=r.d}});TKall.forEach(x=>{const r=tkBkt(x,bd);g+=r.g;d+=r.d});return{g,d}};
+ const hg=hc.reduce((a,x)=>a+x.r.g,0),hd=hc.reduce((a,x)=>a+x.r.d,0),tg=tkm.reduce((a,e)=>a+e.r.g,0),td=tkm.reduce((a,e)=>a+e.r.d,0);
  const sg=SK.length,sdn=SK.filter(x=>x.done).length;
  const lg=LK.length,lpr=LK.length?Math.round(100*LK.reduce((a,x)=>a+(x.done?1:(bridgePct(x)||0)),0)/LK.length):null;
  const ldn=LK.filter(x=>x.done).length;
@@ -496,7 +555,7 @@ function stBuild(o0){const o=Object.assign({},ST,o0||{});
   if(tkP.length)secs.push({t:"Tasks",cols:["Task","Due","Status","Done on"],w:[4,3,2,3],rows:tkP.map(x=>[x.name,stDue(x),x.done?"Done":(overdue(x)?"Past due":"Open"),x.done&&x.doneOn?stDate(x.doneOn):""])});
   const gl=(L,tt)=>{if(L.length)secs.push({t:tt,cols:["Item","Due","Status","Progress %"],w:[4,3,2,2],rows:L.map(x=>[x.name,stDue(x),x.done?"Done":(overdue(x)?"Past due":"Open"),x.done?100:(x.kind==="long"&&bridgePct(x)!==null?Math.round(100*bridgePct(x)):null)])})};
   gl(SK,"Short term");gl(LK,"Long term")}
- if(o.met.days&&(HB.length||TKall.length)){const rows=days.map(d=>{let g,c;if(w){const r=gd([d]);g=r.g;c=r.d}else{g=HB.filter(h=>occurs(h,d)).length+TKall.filter(x=>dueOn(x,d)).length;c=HB.filter(h=>satOn(h,d)).length+TKall.filter(x=>dueOn(x,d)&&x.done).length}return[stDow(d)+" "+stDateD(d),g,c,stRate(g,c)]});secs.push({t:"By day",cols:["Day","Goal","Done","Rate %"],w:[4,1,1,1],rows,note:w?"":"A day counts a habit as done only when all of its hours are done."})}
+ if(o.met.days&&(HB.length||TKall.length)){const rows=days.map(d=>{let g,c;if(w){const r=gd([d]);g=r.g;c=r.d}else{g=HB.reduce((a2,h)=>a2+hExpDay(h,d),0)+TKall.filter(x=>eOn(x,d)).length;c=HB.reduce((a2,h)=>a2+hDonDay(h,d),0)+TKall.filter(x=>donOn(x,d)).length}return[stDow(d)+" "+stDateD(d),g,c,stRate(g,c)]});secs.push({t:"By day",cols:["Day","Goal","Done","Rate %"],w:[4,1,1,1],rows,note:w?"":"A day counts what was finished that day."})}
  const bucket=(keyf,labf,tt,cn)=>{const m=new Map();days.forEach(d=>{const k=keyf(d);if(!m.has(k))m.set(k,[]);m.get(k).push(d)});const rows=[];m.forEach(bd=>{const r=gd(bd);rows.push([labf(bd),r.g,r.d,r.g-r.d,stRate(r.g,r.d)])});secs.push({t:tt,cols:[cn,"Goal","Done","Left","Rate %"],w:[4,1,1,1,1],rows})};
  if(o.met.weeks&&(HB.length||TKall.length))bucket(d=>dk(monOf(d)),bd=>stDateD(bd[0])+" to "+stDateD(bd[bd.length-1]),"By week (Sunday to Saturday)","Week");
  if(o.met.months&&(HB.length||TKall.length))bucket(d=>d.getFullYear()+"-"+d.getMonth(),bd=>MN[bd[0].getMonth()]+" "+bd[0].getFullYear(),"By month","Month");
