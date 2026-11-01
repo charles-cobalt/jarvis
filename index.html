@@ -242,8 +242,15 @@ const UW={g:'g',gram:'g',grams:'g',oz:'oz',ounce:'oz',ounces:'oz',lb:'lb',lbs:'l
 UW.scoop='scoop';
 const matchFood=s=>{s=' '+s.toLowerCase().trim()+' ';for(const [n,i] of FIDX){if(s.includes(' '+n+' ')||s.includes(' '+n+'s '))return FOODS[i]}return null};
 const frac=s=>{const m=s.match(/^(\d+)\s*\/\s*(\d+)$/);if(m)return +m[1]/+m[2];return parseFloat(s)};
+const parseManual=s=>{
+const g=re=>{const m=s.match(re);return m?parseFloat(m[1]):null};
+const kcal=g(/(\d+(?:\.\d+)?)\s*k?cal\b/i),c=g(/\bc\s*(\d+(?:\.\d+)?)\s*g\b/i),p=g(/\bp\s*(\d+(?:\.\d+)?)\s*g\b/i),f=g(/\bf\s*(\d+(?:\.\d+)?)\s*g\b/i);
+if(kcal===null&&c===null&&p===null&&f===null)return null;
+return{kcal:kcal||0,p:p||0,c:c||0,f:f||0,miss:{kcal:kcal===null,c:c===null,p:p===null,f:f===null}}};
 const parseItem=raw=>{
 let s=raw.toLowerCase().replace(/&/g,' ').trim();if(!s)return null;
+const mn=parseManual(s);
+if(mn)return{raw:raw.trim(),ok:true,manual:true,kcal:mn.kcal,p:mn.p,c:mn.c,f:mn.f,miss:mn.miss};
 let qty=1,rest=s;
 let hm=s.match(/^(half|a|an)\s+(.*)$/);
 let fm=s.match(/^(\d+\s*\/\s*\d+|\d+\.?\d*)\s*(.*)$/);
@@ -263,15 +270,17 @@ const k=grams/100;
 return{raw:raw.trim(),ok:true,food:f,kcal:f.kcal*k,p:f.p*k,c:f.c*k,f:f.f*k}};
 const parseLine=t=>{
 const parts=t.split(/[+,;]|\band\b/).map(x=>x.trim()).filter(Boolean);
-let kcal=0,p=0,c=0,f=0,unknown=[];
-parts.forEach(x=>{const it=parseItem(x);if(!it)return;if(it.ok){kcal+=it.kcal;p+=it.p;c+=it.c;f+=it.f}else unknown.push(it.food?it.raw+'?':it.raw)});
-return{kcal,p,c,f,unknown,n:parts.length}};
+let kcal=0,p=0,c=0,f=0,unknown=[],supplied={},missed={};
+parts.forEach(x=>{const it=parseItem(x);if(!it)return;if(it.ok){kcal+=it.kcal;p+=it.p;c+=it.c;f+=it.f;if(it.miss)for(const k in it.miss){if(it.miss[k])missed[k]=1;else supplied[k]=1}}else unknown.push(it.food?it.raw+'?':it.raw)});
+const miss={};for(const k in missed)if(!supplied[k])miss[k]=1;
+return{kcal,p,c,f,unknown,miss,n:parts.length}};
 const macroLine=t=>{
 if(!t||!t.trim())return '';
 const r=parseLine(t);
 if(!r.n)return '';
 if(r.unknown.length===r.n)return '? '+esc(r.unknown.join(', '));
-let s='<b>'+Math.round(r.kcal)+' cal</b> &middot; C '+Math.round(r.c)+'g &middot; P '+Math.round(r.p)+'g &middot; F '+Math.round(r.f)+'g';
+const fm=(v,m,u)=>m?(v>0.5?Math.round(v)+u+'+?':'?'+(u==='g'?'':' '+u.trim())):Math.round(v)+u;
+let s='<b>'+fm(r.kcal,r.miss.kcal,' cal')+'</b> &middot; C '+fm(r.c,r.miss.c,'g')+' &middot; P '+fm(r.p,r.miss.p,'g')+' &middot; F '+fm(r.f,r.miss.f,'g');
 if(r.unknown.length)s+=' &middot; ? '+esc(r.unknown.join(', '));
 return s};
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
