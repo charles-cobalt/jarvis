@@ -699,7 +699,7 @@ const stPreview=m=>m.sections.map(sec=>{const nm=sec.cols.map((c,i)=>colNum(sec,
 const cnt=()=>({h:items.filter(x=>x.kind==="habit").length,t:items.filter(x=>x.kind==="task").length,s:items.filter(x=>x.kind==="short").length,l:items.filter(x=>x.kind==="long").length,d:Object.keys((vitals&&vitals.days)||{}).length});
 const metaObj=()=>({app:"jarvis",format:"jarvis-metadata",version:2,exported:new Date().toISOString(),items,vitals,settings:{theme:theme()}});
 const metaFile=()=>JSON.stringify(metaObj(),null,2);
-const stCleanItem=x=>{const o={name:String(x.name).slice(0,80),days:Array.isArray(x.days)?x.days.map(String):[],kind:x.kind,cadence:x.cadence,done:!!x.done,doneOn:x.doneOn,ts:!!x.ts,dueDate:x.dueDate,dueTime:x.dueTime,slots:Array.isArray(x.slots)?x.slots.map(Number):undefined,slotsDone:Array.isArray(x.slotsDone)?x.slotsDone.map(String):undefined,id:x.id,parent:x.parent,wk:x.wk};Object.keys(o).forEach(k=>{if(o[k]===undefined)delete o[k]});return o};
+const stCleanItem=x=>{const o={name:String(x.name).slice(0,80),days:Array.isArray(x.days)?x.days.map(String):[],kind:x.kind,cadence:x.cadence,done:!!x.done,doneOn:x.doneOn,ts:!!x.ts,dueDate:x.dueDate,dueTime:x.dueTime,slots:Array.isArray(x.slots)?x.slots.map(Number):undefined,slotsDone:Array.isArray(x.slotsDone)?x.slotsDone.map(String):undefined,id:x.id,parent:x.parent,wk:x.wk,editedAt:Number.isFinite(x.editedAt)?x.editedAt:undefined};Object.keys(o).forEach(k=>{if(o[k]===undefined)delete o[k]});return o};
 function stSettingsHtml(){const c=cnt();
  const ch=(attr,val,label,on)=>'<button class="chip'+(on?' on':'')+'" data-st="'+attr+':'+val+'">'+label+'</button>';
  const sm=(attr,val,label,on)=>'<button class="chip sm'+(on?' on':'')+'" data-st="'+attr+':'+val+'">'+label+'</button>';
