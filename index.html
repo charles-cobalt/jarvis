@@ -98,11 +98,12 @@ function capProt(w,sent){const c=String(w).replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+
  if(/^[A-Z][A-Z+]*\+$/.test(c))return w;
  return null}
 const capStrip=s=>String(s==null?'':s).replace(/\*([^*]*)\*/g,'$1');
-function capTitle(s){return String(s==null?'':s).split(/(\*[^*]*\*)/).map((p,pi)=>{if(pi%2)return p;
- const toks=p.split(/(\s+)/),n=toks.filter(t=>t&&!/^\s+$/.test(t)).length;let k=0;
- return toks.map(t=>{if(!t||/^\s+$/.test(t))return t;k++;const pr=capProt(t,false);if(pr)return pr;
+function capTitle(s){const parts=String(s==null?'':s).split(/(\*[^*]*\*)/);
+ const total=parts.reduce((a,p,pi)=>a+(pi%2?0:p.split(/\s+/).filter(Boolean).length),0);let k=0;
+ return parts.map((p,pi)=>{if(pi%2)return p;
+ return p.split(/(\s+)/).map(t=>{if(!t||/^\s+$/.test(t))return t;k++;const pr=capProt(t,false);if(pr)return pr;
   const lw=t.toLowerCase(),core=lw.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g,'');
-  if(k>1&&k<n&&CAPSM.has(core))return lw;
+  if(k>1&&k<total&&CAPSM.has(core))return lw;
   return lw.replace(/[a-z]/,m=>m.toUpperCase())}).join('')}).join('')}
 function capSent(s){return String(s==null?'':s).split(/(\*[^*]*\*)/).map((p,pi)=>{if(pi%2)return p;
  const t=p.split(/(\s+)/).map(w=>{if(!w||/^\s+$/.test(w))return w;const pr=capProt(w,true);return pr||w.toLowerCase()}).join('');
