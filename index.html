@@ -176,9 +176,9 @@ async function doSync(){if(!user)return;if(pushing){again=true;return}pushing=tr
    const M=merge(L,R);out={M,ra,write:sigOf(M)!==sigOf(R)};if(out.write)tx.set(ref,encDoc(M,ra),{merge:true})});
   if(user&&user.uid===me&&out&&rev!==r0)again=true;
   else if(user&&user.uid===me&&out){if(out.adopt)localStorage.setItem(RSK,String(out.ra));
-   if(out.adopt||sigOf(out.M)!==sigOf(localState())){applyM(out.M);if(editing<0)draw()}
-   SY.synced=1;saveSY();syncAt=Date.now();if(msg.startsWith('Sync')){msg=''}if(page==='settings'&&editing<0)draw()}
- }catch(e){msg=(e&&(e.code==='unavailable'||e.code==='failed-precondition'||!navigator.onLine))?'Sync: offline. Changes are saved here and will sync when you are back online.':'Sync problem: '+((e&&e.code)||'unknown')+'. Your list on this phone is safe.';if(page==='settings'&&editing<0)draw()}
+   if(out.adopt||sigOf(out.M)!==sigOf(localState())){applyM(out.M);if(editing<0)drawKeep()}
+   SY.synced=1;saveSY();syncAt=Date.now();if(msg.startsWith('Sync')){msg=''}if(page==='settings'&&editing<0)drawKeep()}
+ }catch(e){msg=(e&&(e.code==='unavailable'||e.code==='failed-precondition'||!navigator.onLine))?'Sync: offline. Changes are saved here and will sync when you are back online.':'Sync problem: '+((e&&e.code)||'unknown')+'. Your list on this phone is safe.';if(page==='settings'&&editing<0)drawKeep()}
  pushing=false;if(again){again=false;schedPush(1500)}}
 function persist(){rev++;localStorage.setItem(K,JSON.stringify(items));if(user){if(SY.synced)stamp();schedPush()}}
 function persistV(){rev++;localStorage.setItem(VK,JSON.stringify(vitals));if(user){if(SY.synced)stamp();schedPush()}}
@@ -200,6 +200,12 @@ const X='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width
 const PLUS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12h14"/></svg>'; const LNK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
 function theme(){return localStorage.getItem('jarvis.theme')||'auto'}
 function applyTheme(){const t=theme();const d=t==='day'||(t==='auto'&&matchMedia('(prefers-color-scheme: light)').matches);document.documentElement.classList.toggle('day',d);const m=document.querySelector('meta[name=theme-color]');if(m)m.content=d?'#ededed':'#121212'}
+const drawKeep=()=>{const a=document.activeElement;
+ if(!a||!((a.tagName==='INPUT'||a.tagName==='TEXTAREA')&&a.closest('#view'))){draw();return}
+ const d=a.dataset||{};const sel=a.id?'#'+CSS.escape(a.id):d.rg?'[data-rg="'+d.rg+'"]':d.pnm?'[data-pnm="'+d.pnm+'"]':d.bs?'[data-bs="'+d.bs+'"]':d.dsf?'[data-dsf="'+d.dsf+'"]':d.dst?'[data-dst="'+d.dst+'"]':d.vf?'[data-vf="'+d.vf+'"]':null;
+ if(!sel){draw();return}
+ const s0=a.selectionStart,e0=a.selectionEnd;draw();
+ const n=document.querySelector(sel);if(n){n.focus();try{n.setSelectionRange(s0,e0)}catch(e){}}};
 function draw(){const _v=document.querySelector('#view');if(_v){_v.oninput=null;_v.onclick=null}document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.go===page));page==='today'?drawToday():page==='stats'?drawStats():drawSettings();sortUI()}
 const wmSvg=k=>{const s=document.querySelector('nav button[data-go="'+k+'"] svg');return s?'<svg class="wm" viewBox="'+s.getAttribute('viewBox')+'" fill="currentColor">'+s.innerHTML+'</svg>':''};
 /*SORT*/
