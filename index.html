@@ -171,7 +171,7 @@ async function applyM(M){const b=buildFrom(M.u,M.ord);items=b.its.map(norm);vita
 const encDoc=(M,ra)=>{const b=buildFrom(M.u,M.ord);return {ver:2,items:b.its,v:JSON.stringify(b.v),m:JSON.stringify({mt:M.mt,del:M.del,ord:M.ord,ordAt:M.ordAt,writer:'sp2',ea:SP.state.times}),theme:M.th||'',themeAt:M.thAt||0,updated:Date.now(),resetAt:ra}};
 let pushT=0,pushing=false,again=false,rev=0,mailSt={};
 function schedPush(d){if(user){clearTimeout(pushT);pushT=setTimeout(doSync,d===undefined?300:d)}}
-async function doSync(){if(!user||!spReady||SP.error||editing>=0||Object.keys(SP.state.conflicts).length)return;const syncOwner=user.uid;await SP.queue;await SP.refresh();if(!user||user.uid!==syncOwner||SP.owner!==syncOwner||!spReady)return;if(pushing){again=true;return}pushing=true;const me=user.uid,r0=rev;
+async function doSync(){if(!user||!spReady||SP.error||editing>=0||Object.keys(SP.state.conflicts).length)return;const syncOwner=user.uid;await SP.queue;await SP.refresh();if(!user||user.uid!==syncOwner||SP.owner!==syncOwner||!spReady)return;if(pushing){again=true;return}pushing=true;let pullSyncOk=false;const me=user.uid,r0=rev;
  try{stamp(!SY.synced);let out=null;const ref=doc(db,'users',me);
   await runTransaction(db,async tx=>{const s=await tx.get(ref);if(!user||user.uid!==me||SP.owner!==me||!spReady||rev!==r0||Object.keys(SP.state.conflicts).length){again=!!user&&user.uid===me;return;}const seen=+localStorage.getItem(RSK)||0,L=localState();L.u=Object.fromEntries(Object.entries(SP.state.data).filter(([k])=>k!=="@order"));L.ord=SP.state.data["@order"]||L.ord;const localBase=SavingProtection.copy(SP.state.data);
    if(!s.exists()){out={M:L,ra:seen,write:true,localBase};return tx.set(ref,encDoc(L,seen),{merge:true})}
@@ -181,9 +181,9 @@ async function doSync(){if(!user||!spReady||SP.error||editing>=0||Object.keys(SP
   if(user&&user.uid===me&&out&&rev!==r0)again=true;
   else if(user&&user.uid===me&&out){if(out.adopt)localStorage.setItem(RSK,String(out.ra));
    if(out.adopt||sigOf(out.M)!==sigOf(localState())){spNextBase=out.localBase;await applyM(out.M);if(editing<0)drawKeep()}
-   await SP.rememberCloud({...out.M.u,'@order':out.M.ord});SY.synced=1;saveSY();syncAt=Date.now();if(msg.startsWith('Sync')){msg=''}if(page==='settings'&&editing<0)drawKeep()}
+   await SP.rememberCloud({...out.M.u,'@order':out.M.ord});pullSyncOk=!SP.error&&!Object.keys(SP.state.conflicts).length;SY.synced=1;saveSY();syncAt=Date.now();if(msg.startsWith('Sync')){msg=''}if(page==='settings'&&editing<0)drawKeep()}
  }catch(e){msg=(e&&(e.code==='unavailable'||e.code==='failed-precondition'||!navigator.onLine))?'Sync: offline. Changes are saved here and will sync when you are back online.':'Sync problem: '+((e&&e.code)||'unknown')+'. Your list on this phone is safe.';if(page==='settings'&&editing<0)drawKeep()}
- finally{pushing=false;if(again){again=false;schedPush(1500)}}}
+ finally{pushing=false;if(again){again=false;schedPush(1500)}}return pullSyncOk;}
 function persist(){rev++;const q=spSave();q.then(()=>{if(spReady&&Object.keys(SP.state.conflicts).length)return;if(user){if(SY.synced)stamp();schedPush()}}).catch(()=>{});return q}
 function persistV(){return persist()}
 function stashOwner(o){localStorage.setItem(OWNP+(o||'anon'),JSON.stringify({items,vitals,sy:SY}))}
@@ -843,6 +843,35 @@ SP.onchange=()=>{if(spReady&&!spBusy&&editing<0&&!document.querySelector('#view 
 window.__savingTest={g:SP,data:spData,apply:spApply,save:persist,capture:spCapture,draw:()=>draw()};
 async function spLegacyCheck(){if(!spReady||(localStorage.getItem('jarvis.owner.v2')||'anon')!==SP.owner)return;for(const field of [K,VK]){const raw=localStorage.getItem(field),changed=await SP.legacyChanged(field,raw);if(!changed||localStorage.getItem(field+'.sp2-write')===raw)continue;let old;try{old=raw===null?(field===K?[]:{}):JSON.parse(raw)}catch{throw new Error('Earlier app data could not be read')}const u=field===K?unitsOf(Array.isArray(old)?old:[],{}):unitsOf([],old||{});const relevant=k=>field===K?k.startsWith('i:'):!k.startsWith('i:')&&!k.startsWith('@');for(const k of new Set([...Object.keys(SP.state.data).filter(relevant),...Object.keys(u)])){if(!SavingProtection.equal(SP.state.data[k],u[k]))await SP.hold(k,[{value:SP.state.data[k],source:'Protected copy'},{value:u[k],source:'Earlier app copy'}]);}}}
 window.addEventListener('storage',e=>{if([K,VK].includes(e.key))spLegacyCheck().catch(e=>{SP.error=e.message;SP.render()});});
+
+/* Pull down at the top to sync account data, never reload app code. */
+(function(){
+ let start=null,bar=null,busy=false,hideTimer;
+ const scroller=()=>document.getElementById('app');
+ const atTop=()=>{const a=scroller();return a&&a.scrollTop<=1&&(window.scrollY||document.documentElement.scrollTop||document.body.scrollTop||0)<=1;};
+ const editingNow=()=>document.activeElement&&document.activeElement.matches('input,textarea,select,[contenteditable="true"]');
+ const eligible=()=>atTop()&&!editingNow()&&spReady&&editing<0;
+ function status(text){if(!bar){bar=document.createElement('div');bar.id='pull-sync-status';bar.setAttribute('role','status');bar.style.cssText='position:fixed;left:0;right:0;top:0;z-index:50;text-align:center;font-size:11px;letter-spacing:.04em;color:var(--mu,#888);padding:calc(env(safe-area-inset-top,0px) + 8px) 12px 8px;background:#111;transform:translateY(-100%);transition:transform .15s;pointer-events:none';document.body.appendChild(bar);}bar.style.background=document.documentElement.classList.contains('day')?'#ededed':'#111';bar.textContent=text;return bar;}
+ const hide=()=>{clearTimeout(hideTimer);hideTimer=setTimeout(()=>{if(bar)bar.style.transform='translateY(-100%)'},1400);};
+ document.addEventListener('touchstart',e=>{if(busy||e.touches.length!==1||!eligible()||!scroller().contains(e.target)||e.target.closest('input,textarea,select,button,[contenteditable="true"]')){start=null;return;}start={x:e.touches[0].clientX,y:e.touches[0].clientY,d:0};},{passive:true});
+ document.addEventListener('touchmove',e=>{if(!start)return;const t=e.touches[0];if(e.touches.length!==1||!t||!eligible()||Math.abs(t.clientX-start.x)>50){start=null;if(bar)bar.style.transform='translateY(-100%)';return;}start.d=t.clientY-start.y;if(start.d<=0)return;clearTimeout(hideTimer);const b=status(start.d>70?'Release to sync':'Pull down to sync');b.style.transform='translateY('+Math.min(0,-100+start.d*1.2)+'%)';},{passive:true});
+ document.addEventListener('touchcancel',()=>{start=null;if(bar)bar.style.transform='translateY(-100%)';},{passive:true});
+ document.addEventListener('touchend',async()=>{const go=start&&start.d>70&&eligible();start=null;if(!go){if(bar)bar.style.transform='translateY(-100%)';return;}busy=true;status('Syncing...').style.transform='translateY(0)';try{
+  if(!navigator.onLine){status('Offline. Sync when you are back online.');return;}
+  if(!user){status('Sign in under Settings to sync');return;}
+  const owner=user&&user.uid,share='';
+  const waitFor=async test=>{const until=Date.now()+15000;while(test()&&Date.now()<until)await new Promise(r=>setTimeout(r,75));return !test();};
+  if(!await waitFor(()=>pushing)){status('Sync is still running. Check Settings.');return;}
+  if((user&&user.uid)!==owner){status('Account changed. Pull down again.');return;}
+  await spCapture();await SP.queue;await SP.refresh();
+  if(SP.error){status('Saving needs attention. Check the saved copies.');return;}
+  if(Object.keys(SP.state.conflicts).length){status('Review the different saved versions before syncing.');return;}
+  if(user){clearTimeout(pushT);const ok=await doSync();if(!ok){status(SP.error?'Saving needs attention.':Object.keys(SP.state.conflicts).length?'Review the different saved versions before syncing.':'Sync did not finish. Check Settings.');return;}}
+  
+  if((user&&user.uid)!==owner){status('Account changed. Pull down again.');return;}
+  status('Up to date');
+ }catch(e){status('Sync did not finish. Try again.');}finally{busy=false;hide();}},{passive:true});
+})();
 
 let spAuthQueue=Promise.resolve();onAuthStateChanged(auth,u=>{spAuthQueue=spAuthQueue.then(async()=>{await spCapture();await SP.queue;const root=document.getElementById('app')||document.body;root.setAttribute('inert','');const viewRoot=document.getElementById('view');viewRoot.innerHTML='<div class="card p" role="status">Opening account...</div>';spReady=false;try{user=u;if(unsub){unsub();unsub=null}
  if(u){switchOwner(u.uid);spApply(await SP.open(u.uid,spData()));spReady=true;await spLegacyCheck();unsub=onSnapshot(doc(db,'users',u.uid),s=>{if(!s.metadata.hasPendingWrites)schedPush(50)},e=>{msg='Sync unavailable: '+e.code;draw()});schedPush(50)}
