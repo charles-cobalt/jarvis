@@ -638,7 +638,7 @@ function stBuild(o0){const o=Object.assign({},ST,o0||{});
   secs.push({t:"Where to improve",cols:["Item","Detail","Rate %"],w:[3,4,1],rows:rows.length?rows:[["Nothing missed in this period.","",null]],note:rows.length?"Habits are listed lowest rate first (up to 10). Open tasks follow.":""})}
  const inc=CATS.filter(c=>o.cats[c[0]]).map(c=>c[1]).join(", ");
  const meta=[["Period",stDateD(rr.a)+" to "+stDateD(rr.b)],["Days covered",String(days.length)+(rr.clipped?" (days after today are not counted)":"")],["Included",inc],["Time window",w?(o.tf||"00:00")+" to "+(o.tt||"23:59")+" (only hourly habits and time-sensitive items)":"All day"],["Weeks","Sunday to Saturday"],["Note","Habits count on every day of the period, including days before they were added."],["Account",user?user.email:"This device (signed out)"],["Generated",new Date().toLocaleString()]];
- return{title:"Jarvis Performance Statement",meta,sections:secs,from:dk(rr.a),to:dk(rr.b)}}
+ return{title:"Jarvis Performance Statement",meta,sections:secs,from:iso(rr.a),to:iso(rr.b)}}
 const cvS=v=>v===null||v===undefined||v===""?"-":String(v);
 const colNum=(sec,i)=>sec.rows.some(r=>typeof r[i]==="number")&&sec.rows.every(r=>r[i]===null||r[i]===undefined||r[i]===""||typeof r[i]==="number");
 const U8=s=>new TextEncoder().encode(s);
@@ -756,7 +756,7 @@ function stResetHtml(){const c=cnt(),ok=ST.rchk&&ST.rtxt.trim().toUpperCase()===
 function stBind(v){
  v.querySelectorAll(".dt-field input").forEach(inp=>{const sync=()=>inp.closest(".dt-field").classList.toggle("is-empty",!inp.value);inp.addEventListener("input",sync);inp.addEventListener("change",sync);sync()});
  const rt=v.querySelector("#rtxt");if(rt)rt.addEventListener("input",()=>{ST.rtxt=rt.value;const ok=ST.rchk&&ST.rtxt.trim().toUpperCase()==="RESET",b=v.querySelector("#rgo");if(b){b.classList.toggle("sec",!ok);b.style.opacity=ok?"":".4"}});
- const stamp=()=>new Date().toISOString().slice(0,10);
+ const stamp=()=>iso(new Date());
  const doExport=()=>{dlFile("jarvis-backup_"+stamp()+".json",metaFile(),"application/json")};
  $("#exp").onclick=()=>{stSnap();doExport();ST.bnote="Backup file downloaded.";draw()};
  $("#imp").onclick=()=>$("#file").click();
@@ -798,7 +798,7 @@ function mailBind(v){v.querySelectorAll('[data-mg]').forEach(b=>b.onclick=()=>{c
 function drawSettings(){const th=theme(),v=$('#view');
 let acct;
 if(user){acct=`<div class="card p"><div>${esc(user.email)}</div><div class="mu" style="margin-top:4px">${user.emailVerified?'Email verified. Synced across your devices.':'Email not verified yet. Check your inbox. Synced across your devices.'}${syncAt?' Last synced '+new Date(syncAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+'.':''}</div>${user.emailVerified?'':'<button class="btn sec" id="resend" style="width:100%;box-sizing:border-box">Resend verification email</button><button class="btn sec" id="chk" style="width:100%;box-sizing:border-box">I verified my email</button>'}<div class="row" style="margin-top:10px"><button class="btn sec" id="syncnow" style="flex:1;margin-top:0">Sync now</button><button class="btn sec" id="out" style="flex:1;margin-top:0">Sign out</button></div></div>`}
-else{acct=`<div class="card p"><div class="mu" style="margin-bottom:4px">Signed out. Your list is saved on this device only.</div><label class="f">Email</label><input id="em" type="email" autocomplete="email" autocapitalize="off" spellcheck="false"><label class="f">Password</label><input id="pw" type="password" autocomplete="current-password"><div class="row" style="margin-top:10px"><button class="btn go" data-a="in" style="margin-top:0">Sign in</button><button class="btn sec go" data-a="up" style="margin-top:0">Create account</button></div><div class="row" style="margin-top:10px"><button class="btn sec go" data-a="reset" style="margin-top:0">Forgot password</button></div></div>`}
+else{acct=`<div class="card p"><div class="mu" style="margin-bottom:4px">Signed out. Your list is saved on this device only.</div><label class="f">Email</label><input id="em" type="email" autocomplete="email" autocapitalize="off" spellcheck="false"><label class="f">Password</label><input id="pw" type="password" autocomplete="current-password"><div class="mu" style="margin-top:4px">Passwords need at least 6 characters.</div><div class="row" style="margin-top:10px"><button class="btn go" data-a="in" style="margin-top:0">Sign in</button><button class="btn sec go" data-a="up" style="margin-top:0">Create account</button></div><div class="row" style="margin-top:10px"><button class="btn sec go" data-a="reset" style="margin-top:0">Forgot password</button></div></div>`}
 v.innerHTML=`<div class="twrap">${wmSvg('settings')}<h1>Settings</h1></div><h2>Theme</h2><div class="row">${['night','day','auto'].map(k=>`<button class="chip ${th===k?'on':''}" data-th="${k}">${k[0].toUpperCase()+k.slice(1)}</button>`).join('')}</div><h2>Account</h2>${acct}<div class="msg" id="msg">${esc(msg)}</div>${stSettingsHtml()}${mailHtml()}<div id="dietbox">${dietHtml()}</div>${stResetHtml()}`;
 bindDiet(v);mailBind(v);v.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{localStorage.setItem('jarvis.theme',b.dataset.th);applyTheme();if(user){if(SY.synced)stamp();schedPush()}draw()});
 v.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{mode=b.dataset.m;msg='';draw()});

@@ -1,4 +1,4 @@
-/* MAMBA saving protection candidate. Local development only. */
+/* Shared draft and conflict protection. Ships with MAMBA, Mirror, Jarvis and Listo. */
 (function(root){
 'use strict';
 const copy=x=>x===undefined?undefined:JSON.parse(JSON.stringify(x));
